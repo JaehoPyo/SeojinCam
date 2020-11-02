@@ -412,7 +412,7 @@ begin
       if (ExecSQL) > 0 then
       begin
         Result := True;
-        Uf_SetOrder(Job_No, 'STATUS', 'CV이동');
+        Uf_SetOrder(IntToStr(Job_No), 'STATUS', 'CV이동');
       end
       else
       begin
