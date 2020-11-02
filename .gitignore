@@ -1,0 +1,7 @@
+# PJH ignore file 
+
+# ignore *.log file
+Win32/Debug/Log/
+
+# ignore history
+__history/
