@@ -366,9 +366,8 @@ begin
 
       // TT_ORDER 에러상태표시 설정
       WhereStr := ' NOW_MACH = ''CV'' ' +
-                  ' AND STATUS in (''CV이동'') ' +
-                  ' AND PLC_NO = ' + QuotedStr(IntToStr(Device));
-      Job_No := Uf_GetOrderJobNo(1, WhereStr);
+                  ' AND STATUS in (''CV이동'') ';
+      Job_No := Uf_GetOrderJobNo(Device, WhereStr);
       Uf_SetOrder(IntToStr(Job_No), 'ERROR_STAT', '1');
       Uf_SetOrder(IntToStr(Job_No), 'ERROR_CODE', FormatFloat('0000', i+7));
     end;
@@ -414,21 +413,66 @@ begin
      (gCVCR[Device].Hogi[1].Exist[5] = '0') and
      (gCVCR[Device].Hogi[1].Error[4] = '0') and
      (gCVCR[Device].Hogi[1].JobDone  = '1') and
-     (Uf_TrackDataCheck(Device, 5) = False) and
-     (Uf_GetOrderJobNo(Device, '입고', 'CV대기') > 0) then
+     (Uf_TrackDataCheck(Device, 5) = False) then
   begin
-    // 팔레트에서 물건 들어내고 팔레트만 다시 입고 시키는 경우에 대한 로직이 필요함
+    // 부분출고 확인 -> 전체출고 확인 -> 입고 확인
 
-    //IF  제품입고인경우, TT_ORDER.STATUS=CV대기, TT_ORDER.ITEM_CD1 != ''
-    // 트랙데이터 생성 & 지시 상태 변경
-      if (Uf_TrackIPGOSet(Device, 4) = True) then
+    // 완료된 부분출고 지시 있음 -> 재입고 지시 생성
+    WhereStr := ' AND ORD_IO   = ' + QuotedStr('출고') +
+                ' AND ORD_TYPE = ' + QuotedStr('부분출고') +
+                ' AND STATUS   = ' + QuotedStr('CV완료');
+    Job_No := Uf_GetOrderJobNo(Device, WhereStr);
+    if (Job_No <> -1) then
+    begin
+      // 재입고 지시 생성
+      Uf_ReIn_OrderCrate(IntToStr(Job_No));
+
+      // 완료된 지시 삭제
+      Uf_DeleteOrder(IntToStr(Job_No));
+
+      // 재입고 지시의 작업번호 가져옴
+      WhereStr := ' AND ORD_IO   = ' + QuotedStr('입고') +
+                  ' AND ORD_TYPE = ' + QuotedStr('재입고') +
+                  ' AND STATUS   = ' + QuotedStr('CV대기');
+      Job_No := Uf_GetOrderJobNo(Device, WhereStr);
+    end
+    // 완료된 출고지시 있음 -> 팔레트 입고 지시 생성
+    else
+    begin
+      WhereStr := ' AND ORD_IO = ' + QuotedStr('출고') +
+                  ' AND STATUS = ' + QuotedStr('CV완료');
+      Job_No := Uf_GetOrderJobNo(Device, WhereStr);
+      if (Job_No <> -1) then
       begin
-        // CV4 직진 명령 설정
-        gCVCW[Device].Hogi[1].StriOrder[4] := '1';
+
+        // 공PLT 입고 지시 생성
+        // 입고지시입고지시
+
+        // 완료된 지시 삭제
+        Uf_DeleteOrder(IntToStr(Job_No));
+
+
+        // 재입고 지시의 작업번호 가져옴
+        WhereStr := ' AND ORD_IO   = ' + QuotedStr('입고') +
+                    ' AND ORD_TYPE = ' + QuotedStr('파레트입고') +
+                    ' AND STATUS   = ' + QuotedStr('CV대기');
+        Job_No := Uf_GetOrderJobNo(Device, WhereStr);
+      end
+      // 입고 지시 있음 -> 작업번호만 가져옴
+      else
+      begin
+        WhereStr := ' AND ORD_TYPE = ' + QuotedStr('입고') +
+                    ' AND STATUS   = ' + QuotedStr('CV대기');
+        Job_No := Uf_GetOrderJobNo(Device, WhereStr);
       end;
+    end;
 
-    //ELSE  물건들어낸 후 팔레트입고인 경우, TT_ORDER 입고지시없음 -> 팔레트 입고로 TT_ORDER 생성
-
+    // 트랙데이터 생성 & 지시 상태 변경
+    if (Uf_TrackIPGOSet(Job_No, Device, 4) = True) then
+    begin
+      // CV4 직진 명령 설정
+      gCVCW[Device].Hogi[1].StriOrder[4] := '1';
+    end;
 
   end;
   // 5->6 직진지시
@@ -1789,7 +1833,12 @@ begin
     Uf_SetOrder(IntToStr(Job_No), 'END_YN', 'Y');
 
     // 지시 삭제
-    Uf_DeleteOrder(IntToStr(Job_No));
+    // 부분 출고가 아닐 때에만 지시를 삭제함
+    if (Uf_GetOrder(IntToStr(Job_No), 'ORD_TYPE') <> '부분출고') then
+    begin
+      Uf_DeleteOrder(IntToStr(Job_No));
+      Uf_TrackDataSet('', 0, Device, 4);
+    end;
 
     // CV3 직진지시 OFF
     gCVCW[Device].Hogi[1].StriOrder[3] := '0';

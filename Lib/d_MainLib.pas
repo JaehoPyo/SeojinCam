@@ -29,6 +29,7 @@ type
     qryRackGet: TADOQuery;
     qryRackSet: TADOQuery;
     PD_INS_EPLT_ORDER: TADOStoredProc;
+    PD_RE_INPUT: TADOStoredProc;
 
     procedure MainDatabaseAfterConnect(Sender: TObject);
     procedure MainDatabaseAfterDisconnect(Sender: TObject);
@@ -51,7 +52,7 @@ type
     procedure Uf_TrackDataSet(Job_No: String; Data, Device, Buff_No: Integer);
     procedure Uf_TrackDBMove(Device, Buff_No: Integer);
     function  Uf_TrackGetJobNo(Device, Buff_No: Integer): Integer;
-    function  Uf_TrackIPGOSet(Device, Buff_No: Integer): Boolean;
+    function  Uf_TrackIPGOSet(Job_No, Device, Buff_No: Integer): Boolean;
 
     function  Uf_TableWirte_CVCR(Idx: Integer; Value:AnsiString):Boolean;
     function  Uf_TableWirte_CVCW(Idx: Integer; Value:AnsiString):Boolean;
@@ -75,6 +76,7 @@ type
     function  Uf_GetOrder(Job_No, Field: String): String;
     procedure Uf_SetOrder(Job_No, Field, Value: String);
     procedure Uf_DeleteOrder(Job_No: String);
+    procedure Uf_ReIn_OrderCrate(Job_No: String);
     function  Uf_GetRack(Loc, Field: String): String;
     procedure Uf_SetRack(Loc, Field, Value: String);
 
@@ -387,22 +389,18 @@ end;
 //---------------------------------------------------------------------------
 // Uf_TrackIPGOSet : 입고 트랙 데이터 입력함. Device:PLC NO, Buff_NO:CV_NO
 //---------------------------------------------------------------------------
-function Uf_TrackIPGOSet(Device, Buff_No : Integer): Boolean;
+function Uf_TrackIPGOSet(Job_No, Device, Buff_No : Integer): Boolean;
 var
   FileName : String;
   Msg : String;
   StrSQL : String;
-  Job_No : String;
 begin
   try
     with Dm_MainLib.qryTrackIPGOSet do
     begin
       Close;
-
-      Job_No := IntToStr(Uf_GetOrderJobNo(Device, '입고', 'CV대기'));
-
       StrSQL := ' UPDATE TT_TRACK ' +
-                '    SET JOB_NO = ' + QuotedStr(Job_No) +
+                '    SET JOB_NO = ' + QuotedStr(IntToStr(Job_No)) +
                 '      , DATA = 1 ' +
                 '      , UPDATE_DT = GETDATE() ' +
                 '  WHERE PLC_NO = ' + IntToStr(Device) +
@@ -1519,7 +1517,7 @@ begin
       StrSQL := ' SELECT JOB_NO ' +
                 '   FROM TT_ORDER WITH(NOLOCK) ' +
                 '  WHERE 1 = 1' +
-                '    AND ' + WhereStr;
+                '    AND PLC_NO = ' + QuotedStr(IntToStr(Device)) + WhereStr;
       SQL.Text := StrSQL;
       Open;
 
@@ -1665,6 +1663,55 @@ begin
 
   end;
 end;
+
+//==============================================================================
+// Uf_ReIn_OrderCrate : Job_No 재입고 지시할 작업번호
+//==============================================================================
+procedure Uf_ReIn_OrderCrate(Job_No: String);
+var
+  FileName : String;
+  Msg : String;
+  O_VRETCD, O_VRETMSG: String;
+  Param : String;
+begin
+  Param := 'I_JOB_NO :' + Job_No;
+  try
+    with Dm_MainLib.PD_RE_INPUT do
+    begin
+      Close;
+      ProcedureName := 'PD_RE_INPUT';
+      Parameters.ParamByName('I_JOB_NO').Value := Job_No;
+      Parameters.ParamByName('O_VRETCD').Direction := pdOutput;
+      ExecProc;
+      O_VRETCD  := VarToStr(Parameters.ParamByName('O_VRETCD' ).Value);
+      Close;
+
+      if (O_VRETCD <> '0') then
+      begin
+        InsertPGMHist('RCP', 'E', 'InsertEPLT_ORDER', '', '', 'SP', 'PD_INS_EPLT_ORDER', Param, O_VRETCD);
+      end
+      else
+      begin
+        InsertPGMHist('RCP', 'N', 'InsertEPLT_ORDER', '', '', 'SP', 'PD_INS_EPLT_ORDER', Param, '');
+      end;
+
+    end;
+  except
+    on E:Exception do
+    begin
+    // 에러이력 DB에 기록
+    //InsertPGMHist(MENU_ID, HIST_TYPE, FUNC_NAME, EVENT_NAME, EVENT_DESC, COMMAND_TYPE, COMMAND_TEXT, PARAM, ERROR_MSG: String);
+      InsertPGMHist('RCP', 'E', 'Uf_ReIn_OrderCrate', '', 'Exception Error', 'SP', 'PD_INS_EPLT_ORDER', Param, E.Message);
+
+      FileName := 'Log\DB_Error_' + FormatDatetime('YYYYMMDD', now) + '.log';
+      Msg := FormatDateTime('YYYY-MM-DD HH:mm:ss ', Now()) + '>>';
+      Msg := Msg + 'Uf_ReIn_OrderCrate' + '['+ E.Message + ']';
+      LogWrite(FileName, Msg);
+    end;
+  end;
+end;
+
+
 
 //==============================================================================
 // Uf_SetRack : Loc: 위치. Field:업데이트할 필드. Value: 값

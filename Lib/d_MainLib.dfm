@@ -202,10 +202,7 @@ object Dm_MainLib: TDm_MainLib
     Top = 384
   end
   object PD_INS_EPLT_ORDER: TADOStoredProc
-    ConnectionString = 
-      'Provider=SQLOLEDB.1;Password=netis1234;Persist Security Info=Tru' +
-      'e;User ID=sa;Initial Catalog=WMS_SEOJIN;Data Source=192.168.0.12' +
-      '3,34333'
+    Connection = MainDatabase
     ProcedureName = 'PD_INS_EPLT_ORDER'
     Parameters = <
       item
@@ -213,24 +210,28 @@ object Dm_MainLib: TDm_MainLib
         Attributes = [paNullable]
         DataType = ftString
         Size = 1
+        Value = Null
       end
       item
         Name = 'I_ITEM_CODE'
         Attributes = [paNullable]
         DataType = ftString
         Size = 100
+        Value = Null
       end
       item
         Name = 'I_PLC_NO'
         Attributes = [paNullable]
         DataType = ftString
         Size = 1
+        Value = Null
       end
       item
         Name = 'I_QTY'
         Attributes = [paNullable]
         DataType = ftInteger
         Precision = 10
+        Value = Null
       end
       item
         Name = 'O_VRETCD'
@@ -238,6 +239,7 @@ object Dm_MainLib: TDm_MainLib
         DataType = ftString
         Direction = pdOutput
         Size = 20
+        Value = Null
       end
       item
         Name = 'O_VRETMSG'
@@ -245,8 +247,16 @@ object Dm_MainLib: TDm_MainLib
         DataType = ftString
         Direction = pdOutput
         Size = 250
+        Value = Null
       end>
     Left = 144
+    Top = 8
+  end
+  object PD_RE_INPUT: TADOStoredProc
+    Connection = MainDatabase
+    ProcedureName = 'PD_RE_INPUT'
+    Parameters = <>
+    Left = 200
     Top = 8
   end
 end
