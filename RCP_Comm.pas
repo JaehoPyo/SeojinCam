@@ -177,6 +177,7 @@ type
     Label12: TLabel;
     tmrServer: TTimer;
     tmrLogFileCheck: TTimer;
+    tmrUPD_ORDSEQSEL: TTimer;
 
     procedure AppException(Sender: TObject; E: Exception);
     procedure btnCommClick(Sender: TObject);
@@ -206,6 +207,7 @@ type
     procedure TrackingProcess_CV(Device: Integer);
     procedure tmrLogFileCheckTimer(Sender: TObject);
     procedure tmrServerTimer(Sender: TObject);
+    procedure tmrUPD_ORDSEQSELTimer(Sender: TObject);
   private
     procedure LogFileDelete;
     function  DeleteRecodingFile(fileDir: String; iOption: integer): Boolean;
@@ -298,9 +300,10 @@ begin
       end;
 
       btnComm.Caption := '통신멈춤';
-      tmrMain.Enabled      := True;
-      tmrConnectDB.Enabled := True;
-      tmrServer.Enabled    := True;
+      tmrMain.Enabled          := True;
+      tmrConnectDB.Enabled     := True;
+      tmrServer.Enabled        := True;
+      tmrUPD_ORDSEQSEL.Enabled := True;
     end
     else
     begin
@@ -309,9 +312,10 @@ begin
       RearPLCSocket.Close();
       Dm_MainLib.MainDatabase.Close();
       ShpDatabaseConn.Brush.Color := CONN_STATUS_COLOR[0];
-      tmrMain.Enabled      := False;
-      tmrConnectDB.Enabled := False;
-      tmrServer.Enabled    := False;
+      tmrMain.Enabled          := False;
+      tmrConnectDB.Enabled     := False;
+      tmrServer.Enabled        := False;
+      tmrUPD_ORDSEQSEL.Enabled := False;
     end;
   except
     on e: Exception do
@@ -1777,6 +1781,18 @@ begin
     ShpMFCInterfaceConn2.Brush.Color := CONN_STATUS_COLOR[1];
   end;
 
+end;
+
+//------------------------------------------------------------------------------
+//  tmrUPD_ORDSEQSELTimer : TT_ORDER의 ORD_SEQ_SEL이 하나 선택되도록 업데이트 해주는 프로시저 호출
+//------------------------------------------------------------------------------
+procedure TfrmMain.tmrUPD_ORDSEQSELTimer(Sender: TObject);
+begin
+  tmrUPD_ORDSEQSEL.Enabled := False;
+
+  Uf_UpdateOrdSeq();
+
+  tmrUPD_ORDSEQSEL.Enabled := True;
 end;
 
 //------------------------------------------------------------------------------

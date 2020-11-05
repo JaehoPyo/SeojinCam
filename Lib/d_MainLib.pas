@@ -30,6 +30,7 @@ type
     qryRackSet: TADOQuery;
     PD_INS_EPLT_ORDER: TADOStoredProc;
     PD_RE_INPUT: TADOStoredProc;
+    PD_UDT_ORD_SEQ: TADOStoredProc;
 
     procedure MainDatabaseAfterConnect(Sender: TObject);
     procedure MainDatabaseAfterDisconnect(Sender: TObject);
@@ -77,6 +78,7 @@ type
     procedure Uf_SetOrder(Job_No, Field, Value: String);
     procedure Uf_DeleteOrder(Job_No: String);
     procedure Uf_ReIn_OrderCrate(Job_No: String);
+    procedure Uf_UpdateOrdSeq();
     function  Uf_GetRack(Loc, Field: String): String;
     procedure Uf_SetRack(Loc, Field, Value: String);
 
@@ -1711,7 +1713,39 @@ begin
   end;
 end;
 
+//==============================================================================
+// Uf_UpdateOrdSeq : TT_ORDER의 ORD_SEQ_SEL이 하나 선택되도록 업데이트 해주는 프로시저 호출
+//==============================================================================
+procedure Uf_UpdateOrdSeq();
+var
+  FileName : String;
+  Msg : String;
+  O_VRETCD, O_VRETMSG: String;
+  Param : String;
+begin
+  Param := '';
+  try
+    with Dm_MainLib.PD_UDT_ORD_SEQ do
+    begin
+      Close;
+      ProcedureName := 'PD_UDT_ORD_SEQ';
+      ExecProc;
+      Close;
+    end;
+  except
+    on E:Exception do
+    begin
+    // 에러이력 DB에 기록
+    //InsertPGMHist(MENU_ID, HIST_TYPE, FUNC_NAME, EVENT_NAME, EVENT_DESC, COMMAND_TYPE, COMMAND_TEXT, PARAM, ERROR_MSG: String);
+      InsertPGMHist('RCP', 'E', 'Uf_UpdateOrdSeq', '', 'Exception Error', 'SP', 'PD_UDT_ORD_SEQ', Param, E.Message);
 
+      FileName := 'Log\DB_Error_' + FormatDatetime('YYYYMMDD', now) + '.log';
+      Msg := FormatDateTime('YYYY-MM-DD HH:mm:ss ', Now()) + '>>';
+      Msg := Msg + 'Uf_UpdateOrdSeq' + '['+ E.Message + ']';
+      LogWrite(FileName, Msg);
+    end;
+  end;
+end;
 
 //==============================================================================
 // Uf_SetRack : Loc: 위치. Field:업데이트할 필드. Value: 값

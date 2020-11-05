@@ -1421,8 +1421,8 @@ object frmMain: TfrmMain
     OnRead = PLCSocketRead
     OnWrite = PLCSocketWrite
     OnError = PLCSocketError
-    Left = 358
-    Top = 243
+    Left = 366
+    Top = 275
   end
   object tmrConnectDB: TTimer
     Enabled = False
@@ -1439,8 +1439,8 @@ object frmMain: TfrmMain
     OnDisconnect = PLCSocketDisconnect
     OnRead = PLCSocketRead
     OnWrite = PLCSocketWrite
-    Left = 406
-    Top = 243
+    Left = 414
+    Top = 275
   end
   object tmrServer: TTimer
     Enabled = False
@@ -1452,7 +1452,14 @@ object frmMain: TfrmMain
     Tag = 1
     Interval = 6000000
     OnTimer = tmrLogFileCheckTimer
-    Left = 320
+    Left = 323
+    Top = 221
+  end
+  object tmrUPD_ORDSEQSEL: TTimer
+    Enabled = False
+    Interval = 2000
+    OnTimer = tmrUPD_ORDSEQSELTimer
+    Left = 366
     Top = 221
   end
 end

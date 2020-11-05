@@ -259,4 +259,11 @@ object Dm_MainLib: TDm_MainLib
     Left = 200
     Top = 8
   end
+  object PD_UDT_ORD_SEQ: TADOStoredProc
+    Connection = MainDatabase
+    ProcedureName = 'PD_UDT_ORD_SEQ'
+    Parameters = <>
+    Left = 256
+    Top = 8
+  end
 end
