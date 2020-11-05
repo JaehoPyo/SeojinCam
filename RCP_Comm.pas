@@ -198,7 +198,7 @@ type
       ErrorEvent: TErrorEvent; var ErrorCode: Integer);
     procedure PLCSocketRead(Sender: TObject; Socket: TCustomWinSocket);
     procedure PLCWrite(Device: Integer; Machine: string; Data: AnsiString);
-    procedure ShowPLCStatus (Device: Integer; Machine: string);
+    procedure ShowPLCStatus(Device: Integer; Machine: string);
     procedure ShowCVWriteStatus(Device: Integer);
     procedure ShowSCWriteStatus;
     procedure SCCW_Write;
@@ -444,13 +444,11 @@ begin
       Job_No := Uf_GetOrderJobNo(Device, WhereStr);
       if (Job_No <> -1) then
       begin
-
         // 공PLT 입고 지시 생성
-        // 입고지시입고지시
+        // 입고지시 함수 만들 예정
 
         // 완료된 지시 삭제
         Uf_DeleteOrder(IntToStr(Job_No));
-
 
         // 재입고 지시의 작업번호 가져옴
         WhereStr := ' AND ORD_IO   = ' + QuotedStr('입고') +
@@ -1817,7 +1815,7 @@ begin
     // CV2 직진지시 OFF
     gCVCW[Device].Hogi[1].StriOrder[2] := '0';
   end;
-  // CV 3-> 4 이동완료처리 : 3->4 데이터 이동 ( 출고 완료)
+  // CV 3->4 이동완료처리 : 3->4 데이터 이동 ( 출고 완료)
   if (gCVCR[Device].Hogi[1].StraightFinish[3] = '1') and
      (gCVCR[Device].Hogi[1].Exist[4] = '1') and
      (gCVCR[Device].Hogi[1].Error[3] = '0') and
@@ -1832,12 +1830,17 @@ begin
     Uf_SetOrder(IntToStr(Job_No), 'STATUS', 'CV완료');
     Uf_SetOrder(IntToStr(Job_No), 'END_YN', 'Y');
 
-    // 지시 삭제
-    // 부분 출고가 아닐 때에만 지시를 삭제함
-    if (Uf_GetOrder(IntToStr(Job_No), 'ORD_TYPE') <> '부분출고') then
+    // 파레트출고일 때에만 작업 삭제 & 출고 작업완료 표시벨 소등
+    if (Uf_GetOrder(IntToStr(Job_No), 'ORD_TYPE') = '파레트출고') then
     begin
       Uf_DeleteOrder(IntToStr(Job_No));
       Uf_TrackDataSet('', 0, Device, 4);
+      gCVCW[Device].Hogi[1].CompleteBell := '0';
+    end
+    // 부분출고, 출고일 때에는 출고작업완료 표시벨 점등
+    else
+    begin
+      gCVCW[Device].Hogi[1].CompleteBell := '1';
     end;
 
     // CV3 직진지시 OFF

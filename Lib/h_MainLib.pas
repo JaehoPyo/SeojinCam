@@ -161,7 +161,8 @@ type
       1 : (All : array [1..16] of AnsiChar);
       2 : (
         StriOrder     : Array[1..6] of AnsiChar; // 직진지시
-        Reserve       : Array[1..10] of AnsiChar; //공란
+        CompleteBell  : AnsiChar;
+        Reserve       : Array[1..9] of AnsiChar; //공란
     )
   end;
 
