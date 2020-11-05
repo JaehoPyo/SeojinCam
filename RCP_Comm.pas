@@ -415,6 +415,9 @@ begin
      (gCVCR[Device].Hogi[1].JobDone  = '1') and
      (Uf_TrackDataCheck(Device, 5) = False) then
   begin
+    // 작업완료 표시벨 소등
+    gCVCW[Device].Hogi[1].CompleteBell := '0';
+
     // 부분출고 확인 -> 전체출고 확인 -> 입고 확인
 
     // 완료된 부분출고 지시 있음 -> 재입고 지시 생성
@@ -424,6 +427,7 @@ begin
     Job_No := Uf_GetOrderJobNo(Device, WhereStr);
     if (Job_No <> -1) then
     begin
+
       // 재입고 지시 생성
       Uf_ReIn_OrderCrate(IntToStr(Job_No));
 
