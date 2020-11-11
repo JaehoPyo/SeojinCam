@@ -128,7 +128,7 @@ object frmMain: TfrmMain
         Top = 2
         Width = 460
         Height = 726
-        ActivePage = TabSheet2
+        ActivePage = TabSheet1
         Align = alClient
         Font.Charset = ANSI_CHARSET
         Font.Color = clWindowText

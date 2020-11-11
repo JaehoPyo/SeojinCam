@@ -69,7 +69,7 @@ object Dm_MainLib: TDm_MainLib
   object qryTrackSet: TADOQuery
     Connection = MainDatabase
     Parameters = <>
-    Left = 328
+    Left = 304
     Top = 88
   end
   object qryCurrentSet: TADOQuery
@@ -265,5 +265,52 @@ object Dm_MainLib: TDm_MainLib
     Parameters = <>
     Left = 256
     Top = 8
+  end
+  object SP_CELL_FIND: TADOStoredProc
+    ConnectionString = 
+      'Provider=SQLOLEDB.1;Password=netis1234;Persist Security Info=Tru' +
+      'e;User ID=sa;Initial Catalog=WMS_SEOJIN;Data Source=192.168.0.12' +
+      '3,34333'
+    ProcedureName = 'PD_GET_EMPTY_RACK'
+    Parameters = <
+      item
+        Name = '@RETURN_VALUE'
+        DataType = ftInteger
+        Direction = pdReturnValue
+        Precision = 10
+      end
+      item
+        Name = '@I_TYPE'
+        Attributes = [paNullable]
+        DataType = ftString
+        Size = 50
+      end
+      item
+        Name = '@I_PLC_NO'
+        Attributes = [paNullable]
+        DataType = ftString
+        Size = 2
+      end
+      item
+        Name = '@I_SC'
+        Attributes = [paNullable]
+        DataType = ftString
+        Size = 2
+      end
+      item
+        Name = '@O_RACK_LOC'
+        Attributes = [paNullable]
+        DataType = ftString
+        Direction = pdInputOutput
+        Size = 8
+      end>
+    Left = 304
+    Top = 9
+  end
+  object qryError: TADOQuery
+    Connection = MainDatabase
+    Parameters = <>
+    Left = 144
+    Top = 328
   end
 end

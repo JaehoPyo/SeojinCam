@@ -234,6 +234,8 @@ var
   gOld_CV_Error : TOld_Error;
   gOld_SC_Error : TOld_Error;
 
+  gOld_SC_Error_Code: Integer = 0;
+
   AckNakFlag    : Char;                    // PLC 통신시 응답헤더.
   gLastCommTime : Tdatetime;               // 최종통신 응답시간.
   gRcpConnect   : String;
@@ -350,6 +352,7 @@ var
   Job_No : Integer;
   i : Integer;
   WhereStr : String;
+  OrdType : String;
 begin
 
   // 자동모드가 아니면 Exit
@@ -392,6 +395,7 @@ begin
     Uf_SetOrder(IntToStr(Job_No), 'STATUS', 'CV이동');
     Uf_SetOrder(IntToStr(Job_No), 'NOW_MACH', 'CV');
   end;
+
   // 2->3 직진지시
   if (gCVCR[Device].Hogi[1].Exist[2] = '1') and
      (gCVCR[Device].Hogi[1].Exist[3] = '0') and
@@ -412,75 +416,106 @@ begin
     // CV3 직진 명령 설정
     gCVCW[Device].Hogi[1].StriOrder[3] := '1';
   end;
-  // 4->5 직진지시 (입고)
+
+  // CV4번 지시완료 및 생성 (입고)
   if (gCVCR[Device].Hogi[1].Exist[4] = '1') and
-     (gCVCR[Device].Hogi[1].Exist[5] = '0') and
-     (gCVCR[Device].Hogi[1].Error[4] = '0') and
-     (gCVCR[Device].Hogi[1].JobDone  = '1') and
-     (Uf_TrackDataCheck(Device, 5) = False) then
+     (gCVCR[Device].Hogi[1].JobDone  = '1') then
   begin
     // 작업완료 표시벨 소등
     gCVCW[Device].Hogi[1].CompleteBell := '0';
 
-    // 부분출고 확인 -> 전체출고 확인 -> 입고 확인
+    WhereStr := ' AND ORD_IO = ' + QuotedStr('출고') +
+                ' AND STATUS = ' + QuotedStr('CV완료');
+    Job_No  := Uf_GetOrderJobNo(Device, WhereStr);
+    OrdType := Uf_GetOrder(IntToStr(Job_No), 'ORD_TYPE');
 
-    // 완료된 부분출고 지시 있음 -> 재입고 지시 생성
-    WhereStr := ' AND ORD_IO   = ' + QuotedStr('출고') +
-                ' AND ORD_TYPE = ' + QuotedStr('부분출고') +
-                ' AND STATUS   = ' + QuotedStr('CV완료');
-    Job_No := Uf_GetOrderJobNo(Device, WhereStr);
-    if (Job_No <> -1) then
+
+    //**** 부분출고 확인 -> 품목출고 확인 -> 입고 확인 ****//
+
+    //**** 완료된 부분출고, 보충출고 지시 있음 -> 재입고 지시 생성 & 출고지시 삭제
+    if ((OrdType = '부분출고') or (OrdType = '보충출고')) then
     begin
-
       // 재입고 지시 생성
       Uf_ReIn_OrderCrate(IntToStr(Job_No));
 
-      // 완료된 지시 삭제
+      // 완료된 [부분출고, 보충출고]지시 삭제
       Uf_DeleteOrder(IntToStr(Job_No));
+
+      // 트랙데이터 제거
+      Uf_TrackDataSet('', 0, Device, 4);
 
       // 재입고 지시의 작업번호 가져옴
       WhereStr := ' AND ORD_IO   = ' + QuotedStr('입고') +
-                  ' AND ORD_TYPE = ' + QuotedStr('재입고') +
+                  ' AND ORD_TYPE IN (' + QuotedStr('재입고') + ',' + QuotedStr('보충입고') + ')' +
                   ' AND STATUS   = ' + QuotedStr('CV대기');
       Job_No := Uf_GetOrderJobNo(Device, WhereStr);
+
+      // 트랙데이터 생성 & 지시 상태 변경
+      Uf_TrackIPGOSet(Job_No, Device, 4);
     end
-    // 완료된 출고지시 있음 -> 팔레트 입고 지시 생성
-    else
+    //**** 완료된 품목출고지시 있음 -> 팔레트 입고 지시 생성 & 출고지시 삭제
+    else if (OrdType = '품목출고') then
     begin
-      WhereStr := ' AND ORD_IO = ' + QuotedStr('출고') +
-                  ' AND STATUS = ' + QuotedStr('CV완료');
+      // 재입고 지시 생성
+      Uf_ReIn_OrderCrate(IntToStr(Job_No));
+
+      // 완료된 [품목출고] 지시 삭제
+      Uf_DeleteOrder(IntToStr(Job_No));
+
+      // 트랙데이터 제거
+      Uf_TrackDataSet('', 0, Device, 4);
+
+      // 재입고 지시의 작업번호 가져옴
+      WhereStr := ' AND ORD_IO   = ' + QuotedStr('입고') +
+                  ' AND ORD_TYPE = ' + QuotedStr('파레트입고') +
+                  ' AND STATUS   = ' + QuotedStr('CV대기');
       Job_No := Uf_GetOrderJobNo(Device, WhereStr);
-      if (Job_No <> -1) then
-      begin
-        // 공PLT 입고 지시 생성
-        // 입고지시 함수 만들 예정
 
-        // 완료된 지시 삭제
-        Uf_DeleteOrder(IntToStr(Job_No));
+      // 트랙데이터 생성 & 지시 상태 변경
+      Uf_TrackIPGOSet(Job_No, Device, 4);
+    end
+    //**** 완료된 파레트출고 지시 있음 -> 팔레트 입고 지시 생성 & 출고지시 삭제
+    else if (OrdType = '파레트출고') then
+    begin
+      // 완료된 [파레트출고] 지시 삭제
+      Uf_DeleteOrder(IntToStr(Job_No));
 
-        // 재입고 지시의 작업번호 가져옴
-        WhereStr := ' AND ORD_IO   = ' + QuotedStr('입고') +
-                    ' AND ORD_TYPE = ' + QuotedStr('파레트입고') +
-                    ' AND STATUS   = ' + QuotedStr('CV대기');
-        Job_No := Uf_GetOrderJobNo(Device, WhereStr);
-      end
-      // 입고 지시 있음 -> 작업번호만 가져옴
-      else
-      begin
-        WhereStr := ' AND ORD_TYPE = ' + QuotedStr('입고') +
-                    ' AND STATUS   = ' + QuotedStr('CV대기');
-        Job_No := Uf_GetOrderJobNo(Device, WhereStr);
-      end;
+      // 트랙데이터 제거
+      Uf_TrackDataSet('', 0, Device, 4);
+
+      // 입고지시의 작업번호 가져옴
+      WhereStr := ' AND ORD_IO = ' + QuotedStr('입고') +
+                  ' AND STATUS = ' + QuotedStr('CV대기') +
+                  ' AND ORD_SEQ_SEL = 1' ;
+      Job_No := Uf_GetOrderJobNo(Device, WhereStr);
+
+      // 트랙데이터 생성 & 지시 상태 변경
+      Uf_TrackIPGOSet(Job_No, Device, 4);
     end;
+  end;
 
-    // 트랙데이터 생성 & 지시 상태 변경
-    if (Uf_TrackIPGOSet(Job_No, Device, 4) = True) then
+  // 4->5 직진지시
+  if (gCVCR[Device].Hogi[1].Exist[4] = '1') and
+     (gCVCR[Device].Hogi[1].Exist[5] = '0') and
+     (gCVCR[Device].Hogi[1].Error[4] = '0') and
+     (Uf_TrackDataCheck(Device, 4) = True ) and
+     (Uf_TrackDataCheck(Device, 5) = False) then
+  begin
+    WhereStr := ' AND ORD_IO = ' + QuotedStr('출고') +
+                ' AND STATUS = ' + QuotedStr('CV완료') +
+                ' AND JOB_NO = ' + QuotedStr(IntToStr(Uf_TrackGetJobNo(Device, 4))) ;
+    Job_No := Uf_GetOrderJobNo(Device, WhereStr);
+    if (Job_No <> -1) then
+    begin
+      gCVCW[Device].Hogi[1].StriOrder[4] := '0';
+    end
+    else
     begin
       // CV4 직진 명령 설정
       gCVCW[Device].Hogi[1].StriOrder[4] := '1';
     end;
-
   end;
+
   // 5->6 직진지시
   if (gCVCR[Device].Hogi[1].Exist[5] = '1') and
      (gCVCR[Device].Hogi[1].Exist[6] = '0') and
@@ -491,8 +526,8 @@ begin
     // CV5 직진 명령 설정
     gCVCW[Device].Hogi[1].StriOrder[5] := '1';
   end;
+
   // 6->7 직진지시
-  // 화물有, 데이터有
   if (gCVCR[Device].Hogi[1].Exist[6] = '1') and
      (gCVCR[Device].Hogi[1].Exist[7] = '0') and
      (gCVCR[Device].Hogi[1].Error[6] = '0') and
@@ -513,7 +548,7 @@ var
   Job_No : Integer;
   i, j : Integer;
   CargoCnt : Integer;
-  Rack_Loc : String;
+  Rack_Loc, Old_RackLoc : String;
   ErrorCode : Integer;
   ErrorMsg : String;
   WhereStr : String;
@@ -562,9 +597,7 @@ begin
   end;
 
   //====== 이중입고 재작업처리 ======//
-  if (gSCCR.SC[1].Error = '1') and
-     (gSCCR.SC[1].Twin_In = '1') and
-     (Uf_GetCurrent('SCDOUBLEINRESET', 'OPTION1') = 'True') then
+  if (Uf_GetCurrent('SCDOUBLEINRESET', 'OPTION1') = 'True') then
   begin
     edtStep.Text := 'RESET - 이중입고';
     // 현재 작업 가져오기 (이중입고의 경우 TT_ORDER의 STATUS = 'SC하역'임) 스태커 작업은 언제나 1개임
@@ -581,9 +614,7 @@ begin
     Exit;
   end
   //====== 공출고 작업취소처리 ======//
-  else if (gSCCR.SC[1].Error = '1') and
-          (gSCCR.SC[1].Blank_Out = '1') and
-          (Uf_GetCurrent('SCEMPTYOUTCANCEL', 'OPTION1') = 'True') then
+  else if (Uf_GetCurrent('SCEMPTYOUTCANCEL', 'OPTION1') = 'True') then
   begin
     edtStep.Text := 'RESET - 공출고(작업취소)';
 
@@ -597,9 +628,7 @@ begin
     Exit;
   end
   //====== 공출고 다른셀출고처리 ======//
-  else if (gSCCR.SC[1].Error = '1') and
-          (gSCCR.SC[1].Blank_Out = '1') and
-          (Uf_GetCurrent('SCEMPTYOUTRESET', 'OPTION1') = 'True') then
+  else if (Uf_GetCurrent('SCEMPTYOUTRESET', 'OPTION1') = 'True') then
   begin
     edtStep.Text := 'RESET - 공출고(다른셀출고)';
     // 현재 작업 가져오기 (공출고의 경우 TT_ORDER의 STATUS = 'SC적재'임)
@@ -616,13 +645,17 @@ begin
     Exit;
   end;
 
-
   //====== 에러 ======//
   if (gSCCR.SC[1].Error = '1') then
   begin
+    ErrorCode:= Data16to10(gSCCR.SC[1].Error_Code[1]) * 16 +
+                Data16to10(gSCCR.SC[1].Error_Code[2]);
+
+    // 이전 에러코드와 현재 에러코드가 같으면 나감
+    if (gOld_SC_Error_Code = ErrorCode) then Exit;
+
     // TT_ORDER 에러상태표시 설정
-    WhereStr := ' NOW_MACH = ''SC'' ' +
-                ' AND STATUS in (''SC적재'', ''SC하역'') ';
+    WhereStr := ' AND STATUS in (''SC적재'', ''SC하역'') ';
     Job_No := Uf_GetOrderJobNo(1, WhereStr);
     if (Uf_GetOrder(IntToStr(Job_No), 'ERROR_STAT') = '0') then
     begin
@@ -630,23 +663,58 @@ begin
       Uf_SetOrder(IntToStr(Job_No), 'ERROR_CODE', FormatFloat('0000', ErrorCode));
     end;
 
-    ErrorCode:= Data16to10(gSCCR.SC[1].Error_Code[1]) * 16 +
-                Data16to10(gSCCR.SC[1].Error_Code[2]);
+    // 에러위치 가져옴
+    Old_RackLoc := Uf_GetOrder(IntToStr(Job_No), 'ORD_LOC');
+
+    // 에러 기록
+    ErrorWrite(FormatFloat('0000', ErrorCode), IntToStr(Job_No), Old_RackLoc);
+
     // 이중입고
     if (gSCCR.SC[1].Twin_In = '1') or
        (ErrorCode = 42) then
     begin
+
+      // TC_Current 이중입고 마킹
       if (Uf_GetCurrent('SCDOUBLEIN', 'OPTION1') = 'False') then
       begin
         Uf_SetCurrent('SCDOUBLEIN', 'OPTION1', '1');
       end;
 
-      Rack_Loc := Uf_GetOrder(IntToStr(Job_No), 'ORD LOC');
-      if (Uf_GetRack(Rack_Loc, 'RACK_STAT') <> '이중입고') then
+      // TT_Rack 이중입고 마킹
+      if (Uf_GetRack(Old_RackLoc, 'RACK_STAT') <> '이중입고') then
       begin
-        Uf_SetRack(Rack_Loc, 'RACK_STAT', '이중입고');
+        Uf_SetRack(Old_RackLoc, 'RACK_STAT', '이중입고');
       end;
 
+      // 새 위치 가져오기
+      Device := StrToInt(Uf_GetOrder(IntToStr(Job_No), 'PLC_NO'));
+      Rack_Loc := GetEmptyRack('', IntToStr(Device), '1');
+      if (Copy(Rack_Loc, 1, 2) = 'NG')  then
+      begin
+        // 에러이력 남김
+        ErrorLogWrite('빈셀찾기 실패');
+      end
+      else
+      begin
+        Rack_Loc := Copy(Rack_Loc, 3, 6);
+        // 위치 재설정
+        Uf_SetOrder(IntToStr(Job_No), 'ORD_LOC'  , Rack_Loc);
+        Uf_SetOrder(IntToStr(Job_No), 'DST_BANK' , Copy(Rack_Loc, 1, 2));
+        Uf_SetOrder(IntToStr(Job_No), 'DST_BAY'  , Copy(Rack_Loc, 3, 2));
+        Uf_SetOrder(IntToStr(Job_No), 'DST_LEVEL', Copy(Rack_Loc, 5, 2));
+
+        // 랙 입고중 상태 표시
+        Uf_SetRack(Rack_Loc, 'RACK_STAT', '입고중');
+
+        // 랙 재고 위치 변경
+        Uf_SetRackStock(Old_RackLoc, 'RACK_LOC', Rack_Loc);
+        Uf_SetRackStock(Old_RackLoc, 'RACK_BANK',  Copy(Rack_Loc, 1, 2));
+        Uf_SetRackStock(Old_RackLoc, 'RACK_BAY',   Copy(Rack_Loc, 3, 2));
+        Uf_SetRackStock(Old_RackLoc, 'RACK_LEVEL', Copy(Rack_Loc, 5, 2));
+
+        // 지시버퍼 재설정
+        Uf_SC_WriteDataSet(Device, Job_No, '입고');
+      end;
     end
     // 공출고
     else if (gSCCR.SC[1].Blank_Out = '1') or
@@ -664,7 +732,31 @@ begin
       end;
     end;
 
+    // 에러코드 저장
+    gOld_SC_Error_Code := ErrorCode;
+
     Exit;
+  end
+  else if (gSCCR.SC[1].Error = '0') then
+  begin
+    if (gOld_SC_Error_Code <> 0) then
+    begin
+      // TT_ORDER 작업번호 가져옴
+      WhereStr := ' AND STATUS in (''SC적재'', ''SC하역'') ';
+      Job_No := Uf_GetOrderJobNo(1, WhereStr);
+
+      // 지시의 에러 삭제
+      Uf_SetOrder(IntToStr(Job_No), 'ERROR_STAT', '0');
+      Uf_SetOrder(IntToStr(Job_No), 'ERROR_CODE', '');
+
+      // TC_Current 값 초기화
+      Uf_SetCurrent('SCDOUBLEIN', 'OPTION1', '0');
+
+      // 에러 해제 시각 기록
+      ErrorClear(FormatFloat('0000', gOld_SC_Error_Code));
+
+      gOld_SC_Error_Code := 0;
+    end;
   end;
 
   // 입고,출고 번갈아가며 지시
@@ -672,7 +764,6 @@ begin
   else if gInOutFlag = '입고'     then gInOutFlag := '출고'
   else if gInOutFlag = '출고'     then gInOutFlag := 'EPLT출고'
   else if gInOutFlag = 'EPLT출고' then gInOutFlag := '입고';
-
 
   //====== 진행중인 작업 처리 ======//
   if (Uf_GetOrderPLCNo(gInOutFlag, 'SC적재') > 0) or
@@ -862,8 +953,8 @@ begin
 
   mmErrorLog.Lines.Add(Msg);
 
-  //InsertPGMHist(MENU_ID, HIST_TYPE, FUNC_NAME, EVENT_NAME, EVENT_DESC, COMMAND_TYPE, COMMAND_TEXT, PARAM, ERROR_MSG: String);
-  InsertPGMHist('RCP', 'E', 'ErrorLogWrite', '', 'Exception Error', 'PGM', '', '', Msg);
+//InsertPGMHist(MENU_ID, HIST_TYPE, FUNC_NAME, EVENT_NAME, EVENT_DESC, COMMAND_TYPE, COMMAND_TEXT, PARAM, ERROR_MSG: String);
+  InsertPGMHist('RCP', 'E', 'ErrorLogWrite', '', '', 'PGM', '', '', Msg);
 end;
 
 //------------------------------------------------------------------------------
@@ -873,6 +964,7 @@ procedure TfrmMain.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
   if (FrontPLCSocket.Active) then FrontPLCSocket.Close();
   if (RearPLCSocket.Active) then RearPLCSocket.Close();
+  ExitProcess(0);
 end;
 
 //------------------------------------------------------------------------------
@@ -1419,8 +1511,7 @@ begin
      (gSCCR.SC[1].Storage_In_Ing    = '1') and
      (gSCCR.SC[1].Storage_Out_Ing   = '0') and
      (gSCCR.SC[1].In_St_Fork_Finish = '1') and
-     (gSCCR.SC[1].Pallet_Exist      = '1') and
-     (gInOutFlag = '입고') then
+     (gSCCR.SC[1].Pallet_Exist      = '1') then
   begin
     edtStep.Text := 'ORDER - 입고대포킹완료';
     // 입고대(CV7)에서 SC로 데이터 이동
@@ -1431,14 +1522,14 @@ begin
     // 지시상태 변경 'SC적재'->'SC하역'
     Uf_SetOrder(IntToStr(Job_No), 'STATUS'  , 'SC하역');
     Uf_SetOrder(IntToStr(Job_No), 'NOW_MACH', 'SC');
+    Uf_SetOrder(IntToStr(Job_No), 'NOW_SITE', '100');
   end
   //** 스태커 입고작업 완료 **// (랙에 넣음, 재고처리는 트리거로 할 예정)
   else if (gSCCR.SC[1].Job_Standby     = '0') and
           (gSCCR.SC[1].Storage_In_Ing  = '0') and
           (gSCCR.SC[1].Storage_Out_Ing = '0') and
           (gSCCR.SC[1].Rack_In_Finish  = '1') and
-          (gSCCR.SC[1].Pallet_Exist    = '0') and
-          (gInOutFlag = '입고') then
+          (gSCCR.SC[1].Pallet_Exist    = '0') then
   begin
     edtStep.Text := 'FINISH - 랙입고완료';
 
@@ -1448,7 +1539,7 @@ begin
 
     // 지시상태 변경 'SC하역'->'SC완료'
     Uf_SetOrder(IntToStr(Job_No), 'STATUS' , 'SC완료');
-    Uf_SetOrder(IntToStr(Job_No), 'IN_DATE', 'CONVERT([VARCHAR](MAX),GETDATE(),(21))');
+    Uf_SetOrder(IntToStr(Job_No), 'IN_DATE', '');
     Uf_SetOrder(IntToStr(Job_No), 'END_YN' , 'Y');
 
     // 지시 삭제
@@ -1465,8 +1556,7 @@ begin
           (gSCCR.SC[1].Storage_In_Ing  = '0') and
           (gSCCR.SC[1].Storage_Out_Ing = '1') and
           (gSCCR.SC[1].Rack_Out_Finish = '1') and
-          (gSCCR.SC[1].Pallet_Exist    = '1') and
-          (gInOutFlag = '출고') then
+          (gSCCR.SC[1].Pallet_Exist    = '1') then
   begin
     edtStep.Text := 'ORDER - 랙포킹완료';
     // 작업 가져옴
@@ -1477,14 +1567,14 @@ begin
     Uf_TrackDataSet(IntToStr(Job_No), 1, 1, 100);
     Uf_SetOrder(IntToStr(Job_No), 'STATUS'  , 'SC하역');
     Uf_SetOrder(IntToStr(Job_No), 'NOW_MACH', 'SC');
+    Uf_SetOrder(IntToStr(Job_No), 'NOW_SITE', '100');
   end
   //** 스태커 출고작업 완료 **// (출고대에 내려놓음 SC->CV)
   else if (gSCCR.SC[1].Job_Standby        = '0') and
           (gSCCR.SC[1].Storage_In_Ing     = '0') and
           (gSCCR.SC[1].Storage_Out_Ing    = '0') and
           (gSCCR.SC[1].Out_St_Fork_Finish = '1') and
-          (gSCCR.SC[1].Pallet_Exist       = '0') and
-          (gInOutFlag = '출고') then
+          (gSCCR.SC[1].Pallet_Exist       = '0') then
   begin
     edtStep.Text := 'FINISH - 출고대 포킹완료';
     // 작업 가져옴
@@ -1819,6 +1909,10 @@ begin
     // CV1 Data move to CV2
     Uf_TrackDBMove(Device, 2);
 
+    // TT_ORDER.NOW_SITE 변경
+    Job_No := Uf_TrackGetJobNo(Device, 2);
+    Uf_SetOrder(IntToStr(Job_No), 'NOW_SITE', IntToStr(Device) + '2');
+
     // CV1 직진지시 OFF
     gCVCW[Device].Hogi[1].StriOrder[1] := '0';
   end;
@@ -1832,10 +1926,14 @@ begin
     // CV2 Data move to CV3
     Uf_TrackDBMove(Device, 3);
 
+    // TT_ORDER.NOW_SITE 변경
+    Job_No := Uf_TrackGetJobNo(Device, 3);
+    Uf_SetOrder(IntToStr(Job_No), 'NOW_SITE', IntToStr(Device) + '3');
+
     // CV2 직진지시 OFF
     gCVCW[Device].Hogi[1].StriOrder[2] := '0';
   end;
-  // CV 3->4 이동완료처리 : 3->4 데이터 이동 ( 출고 완료)
+  // CV 3->4 이동완료처리 : 3->4 데이터 이동 (출고 완료)
   if (gCVCR[Device].Hogi[1].StraightFinish[3] = '1') and
      (gCVCR[Device].Hogi[1].Exist[4] = '1') and
      (gCVCR[Device].Hogi[1].Error[3] = '0') and
@@ -1849,15 +1947,14 @@ begin
     Job_No := Uf_TrackGetJobNo(Device, 4);
     Uf_SetOrder(IntToStr(Job_No), 'STATUS', 'CV완료');
     Uf_SetOrder(IntToStr(Job_No), 'END_YN', 'Y');
+    Uf_SetOrder(IntToStr(Job_No), 'NOW_SITE', IntToStr(Device) + '4');
 
-    // 파레트출고일 때에만 작업 삭제 & 출고 작업완료 표시벨 소등
+    // 파레트출고일 때에만 출고 작업완료 표시벨 소등
     if (Uf_GetOrder(IntToStr(Job_No), 'ORD_TYPE') = '파레트출고') then
     begin
-      Uf_DeleteOrder(IntToStr(Job_No));
-      Uf_TrackDataSet('', 0, Device, 4);
       gCVCW[Device].Hogi[1].CompleteBell := '0';
     end
-    // 부분출고, 출고일 때에는 출고작업완료 표시벨 점등
+    // 부분출고, 품목출고일 때에는 출고작업완료 표시벨 점등
     else
     begin
       gCVCW[Device].Hogi[1].CompleteBell := '1';
@@ -1876,6 +1973,10 @@ begin
     // CV4 Data move to CV5
     Uf_TrackDBMove(Device, 5);
 
+    // TT_ORDER.NOW_SITE 변경
+    Job_No := Uf_TrackGetJobNo(Device, 5);
+    Uf_SetOrder(IntToStr(Job_No), 'NOW_SITE', IntToStr(Device) + '5');
+
     // CV4 직진지시 OFF
     gCVCW[Device].Hogi[1].StriOrder[4] := '0';
   end;
@@ -1889,6 +1990,10 @@ begin
     // CV5 Data move to CV6
     Uf_TrackDBMove(Device, 6);
 
+    // TT_ORDER.NOW_SITE 변경
+    Job_No := Uf_TrackGetJobNo(Device, 6);
+    Uf_SetOrder(IntToStr(Job_No), 'NOW_SITE', IntToStr(Device) + '6');
+
     // CV5 직진지시 OFF
     gCVCW[Device].Hogi[1].StriOrder[5] := '0';
   end;
@@ -1901,6 +2006,10 @@ begin
   begin
     // CV6 Data move to CV7
     Uf_TrackDBMove(Device, 7);
+
+    // TT_ORDER.NOW_SITE 변경
+    Job_No := Uf_TrackGetJobNo(Device, 7);
+    Uf_SetOrder(IntToStr(Job_No), 'NOW_SITE', IntToStr(Device) + '7');
 
     // Order Status 변경: CV이동 -> SC대기
     Job_No := Uf_TrackGetJobNo(Device, 7);

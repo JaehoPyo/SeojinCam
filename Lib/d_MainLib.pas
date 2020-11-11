@@ -31,6 +31,8 @@ type
     PD_INS_EPLT_ORDER: TADOStoredProc;
     PD_RE_INPUT: TADOStoredProc;
     PD_UDT_ORD_SEQ: TADOStoredProc;
+    SP_CELL_FIND: TADOStoredProc;
+    qryError: TADOQuery;
 
     procedure MainDatabaseAfterConnect(Sender: TObject);
     procedure MainDatabaseAfterDisconnect(Sender: TObject);
@@ -81,13 +83,19 @@ type
     procedure Uf_UpdateOrdSeq();
     function  Uf_GetRack(Loc, Field: String): String;
     procedure Uf_SetRack(Loc, Field, Value: String);
+    procedure Uf_SetRackStock(Loc, Field, Value: String);
 
 
     procedure Uf_SCDataMove(Device: Integer; IO: String);
     procedure Uf_SC_WriteDataSet(Device, Job_No: Integer; IO: String);
 
+    function  GetEmptyRack(tTYPE, PLC_NO, SC: String): String;
     procedure InsertPGMHist(MENU_ID, HIST_TYPE, FUNC_NAME, EVENT_NAME, EVENT_DESC, COMMAND_TYPE, COMMAND_TEXT, PARAM, ERROR_MSG: String);
     function  InsertEPLT_ORDER(I_WMS_NO, I_ITEM_CODE, I_PLC_NO, I_QTY: String): String;
+
+    procedure ErrorWrite(ErrorCode, JOB_NO, ORD_LOC: String);
+    procedure ErrorClear(ErrorCode: String);
+
 var
   Dm_MainLib: TDm_MainLib;
 
@@ -331,6 +339,8 @@ begin
                 '    AND BUFF_NO = ' + IntToStr(Buff_No - 1);
       SQL.Text := StrSQL;
       ExecSQL;
+
+      Close;
     end;
   except
     on E : Exception do
@@ -1825,6 +1835,43 @@ begin
 end;
 
 
+//==============================================================================
+// Uf_SetRackStock : Loc: 위치. Field:업데이트할 필드. Value: 값
+//==============================================================================
+procedure Uf_SetRackStock(Loc, Field, Value: String);
+var
+  FileName : String;
+  Msg : String;
+  StrSQL : String;
+begin
+  try
+    with Dm_MainLib.qryRackSet do
+    begin
+      Close;
+      StrSQL := ' UPDATE TT_RACK_STOCK ' +
+                '    SET ' + Field + ' = ' + QuotedStr(Value) +
+                '      , UP_DT = CONVERT([varchar](max),getdate(),(21)) ' +
+                '  WHERE RACK_LOC = ' + QuotedStr(Loc);
+
+      SQL.Text := StrSQL;
+      ExecSQL;
+    end;
+
+  except
+    on E:Exception do
+    begin
+    // 에러이력 DB에 기록
+    //InsertPGMHist(MENU_ID, HIST_TYPE, FUNC_NAME, EVENT_NAME, EVENT_DESC, COMMAND_TYPE, COMMAND_TEXT, PARAM, ERROR_MSG: String);
+      InsertPGMHist('RCP', 'E', 'Uf_SetRackStock', '', 'Exception Error', 'SQL', StrSQL, '', E.Message);
+
+      FileName := 'Log\DB_Error_' + FormatDatetime('YYYYMMDD', now) + '.log';
+      Msg := FormatDateTime('YYYY-MM-DD HH:mm:ss ', Now()) + '>>';
+      Msg := Msg + 'Uf_SetRackStock' + '['+ E.Message + ']';
+      LogWrite(FileName, Msg);
+    end;
+
+  end;
+end;
 
 //==============================================================================
 // Uf_TC_SCCW_Update
@@ -1964,6 +2011,158 @@ begin
     end;
   end;
 end;
+
+
+//==============================================================================
+// GetEmptyRack ( 빈셀 찾기 )                                                 //
+//==============================================================================
+function GetEmptyRack(tTYPE, PLC_NO, SC: String): String;
+var
+  ParamStr : String;
+  FileName : String;
+  Msg : String;
+  O_VRETCD, O_VRETMSG: String;
+  Param : String;
+begin
+  try
+    ParamStr := 'TYPE:'   + tTYPE  + '|' +
+                'PLC_NO:' + PLC_NO + '|' +
+                'SC:'     + SC     + '|' ;
+
+    with Dm_MainLib.SP_CELL_FIND do
+    begin
+      Close;
+      Parameters.ParamByName('@I_TYPE'  ).Value := tTYPE;
+      Parameters.ParamByName('@I_PLC_NO').Value := PLC_NO;
+      Parameters.ParamByName('@I_SC'    ).Value := SC;
+      Parameters.ParamByName('@O_RACK_LOC').Direction := pdOutput;
+      ExecProc;
+      Result := Parameters.ParamValues['@O_RACK_LOC'];
+      Close;
+    end;
+  except
+    on E : Exception do
+    begin
+      Dm_MainLib.SP_CELL_FIND.Close;
+
+    // 에러이력 DB에 기록
+    //InsertPGMHist(MENU_ID, HIST_TYPE, FUNC_NAME, EVENT_NAME, EVENT_DESC, COMMAND_TYPE, COMMAND_TEXT, PARAM, ERROR_MSG: String);
+      InsertPGMHist('RCP', 'E', 'GetEmptyRack', '', 'Exception Error', 'SP', Dm_MainLib.SP_CELL_FIND.ProcedureName, ParamStr, E.Message);
+      FileName := 'Log\DB_Error_' + FormatDatetime('YYYYMMDD', now) + '.log';
+      Msg := FormatDateTime('YYYY-MM-DD HH:mm:ss ', Now()) + '>>';
+      Msg := Msg + 'GetEmptyRack' + '['+ E.Message + ']';
+      LogWrite(FileName, Msg);
+    end;
+  end;
+end;
+
+
+
+//==============================================================================
+// ErrorWrite [에러기록]                                                      //
+//==============================================================================
+procedure ErrorWrite(ErrorCode, JOB_NO, ORD_LOC: String);
+var
+  FileName : String;
+  Msg : String;
+  StrSQL : String ;
+begin
+  try
+    with Dm_MainLib.qryError do
+    begin
+      Close;
+      SQL.Clear;
+      StrSQL := ' SELECT ERR_CODE ' +
+                '   FROM TM_ERROR WITH (NOLOCK) ' +
+                '  WHERE WMS_NO  = ''D'' ' +
+                '    AND MACH_ID = ''SC'' ' +
+                '    AND ERR_CODE  = ''' + ErrorCode + ''' ';
+      SQL.Text := StrSQL;
+      Open;
+      if not (eof and bof) then
+      begin
+        Close;
+        SQL.Clear;
+        StrSQL  := ' INSERT TT_ERROR ' +
+                   ' SELECT ' +
+                   '  ''D'' ' +                                // WMS_NO
+                   ', ''SC'' ' +                               // MACH_ID
+                   ', ''' + ErrorCode + ''' ' +                // ERR_CODE
+                   ', GETDATE() ' +                            // ERR_START
+                   ', Null ' +                                 // ERR_END
+                   ', ''' + JOB_NO + ''' ' +                   // ERR_JOB_NO
+                   ', ''' + ORD_LOC + ''' ' +                  // ERR_LOC
+                   ', '''' ' +                                 // ERR_MEMO
+                   ', '''' ' +                                 // UP_DT
+                   ', CONVERT(VARCHAR(MAX), GETDATE(), 21) ' + // CR_DT
+                   '   FROM TM_ERROR WITH (NOLOCK) ' +
+                   '  WHERE MACH_ID   = ''SC'' ' +
+                   '    AND ERR_CODE  = ''' + ErrorCode + ''' ' ;
+        SQL.Text := StrSQL ;
+        ExecSQL;
+      end;
+      Close;
+    end;
+  except
+    on E : Exception do
+    begin
+      Dm_MainLib.qryError.Close;
+
+    // 에러이력 DB에 기록
+    //InsertPGMHist(MENU_ID, HIST_TYPE, FUNC_NAME, EVENT_NAME, EVENT_DESC, COMMAND_TYPE, COMMAND_TEXT, PARAM, ERROR_MSG: String);
+      InsertPGMHist('RCP', 'E', 'ErrorWrite', '', 'Exception Error', 'SQL', StrSQL, '', E.Message);
+      FileName := 'Log\DB_Error_' + FormatDatetime('YYYYMMDD', now) + '.log';
+      Msg := FormatDateTime('YYYY-MM-DD HH:mm:ss ', Now()) + '>>';
+      Msg := Msg + 'ErrorWrite' + '['+ E.Message + ']';
+      LogWrite(FileName, Msg);
+    end;
+  end;
+end;
+
+//==============================================================================
+// ErrorClear [에러해제]                                                      //
+//==============================================================================
+procedure ErrorClear(ErrorCode: String);
+var
+  FileName : String;
+  Msg : String;
+  StrSQL : String ;
+begin
+  try
+    with Dm_MainLib.qryError do
+    begin
+      Close;
+      SQL.Clear;
+      StrSQL := ' UPDATE TT_ERROR ' +
+                '    SET ERR_END = GETDATE() ' +
+                '      , UP_DT   = CONVERT(VARCHAR(MAX), GETDATE(), 21) ' +
+                '  WHERE MACH_ID   = ''SC'' ' +
+                '    AND ERR_CODE  = ''' + ErrorCode   + ''' ' +
+                '    AND ERR_START = ' +
+                '       ( SELECT TOP 1 ERR_START ' +
+                '           FROM TT_ERROR WITH (NOLOCK) ' +
+                '          WHERE MACH_ID   = ''SC'' ' +
+                '            AND ERR_CODE  = ''' + ErrorCode   + ''' ' +
+                '          ORDER BY ERR_START DESC) ' ;
+      SQL.Text := StrSQL ;
+      ExecSQL;
+      Close;
+    end;
+  except
+    on E : Exception do
+    begin
+      Dm_MainLib.qryError.Close;
+    // 에러이력 DB에 기록
+    //InsertPGMHist(MENU_ID, HIST_TYPE, FUNC_NAME, EVENT_NAME, EVENT_DESC, COMMAND_TYPE, COMMAND_TEXT, PARAM, ERROR_MSG: String);
+      InsertPGMHist('RCP', 'E', 'ErrorClear', '', 'Exception Error', 'SQL', StrSQL, '', E.Message);
+      FileName := 'Log\DB_Error_' + FormatDatetime('YYYYMMDD', now) + '.log';
+      Msg := FormatDateTime('YYYY-MM-DD HH:mm:ss ', Now()) + '>>';
+      Msg := Msg + 'ErrorClear' + '['+ E.Message + ']';
+      LogWrite(FileName, Msg);
+    end;
+  end;
+end;
+
 
 
 
