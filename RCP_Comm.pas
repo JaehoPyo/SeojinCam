@@ -403,7 +403,7 @@ begin
         Uf_SetOrder(IntToStr(Job_No), 'ERROR_CODE', '');
 
         // 에러 해제 시각 기록
-        ErrorClear(FormatFloat('0000', gOld_CV_Error_Code[i]));
+        ErrorClear(FormatFloat('0000', gOld_CV_Error_Code[Device][i]));
 
         gOld_CV_Error_Code[Device][i] := 0;
       end;
