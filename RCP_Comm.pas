@@ -231,10 +231,9 @@ var
   gCVCW         : Array [1..2] of TCVCW;
   gSCCR         : TSCCR;
   gSCCW         : TSCCW;
-  gOld_CV_Error : TOld_Error;
-  gOld_SC_Error : TOld_Error;
 
   gOld_SC_Error_Code: Integer = 0;
+  gOld_CV_Error_Code: Array [1..2, 1..6] of Integer;
 
   AckNakFlag    : Char;                    // PLC 통신시 응답헤더.
   gLastCommTime : Tdatetime;               // 최종통신 응답시간.
@@ -351,8 +350,9 @@ procedure TfrmMain.ControlProcess_CV(Device: Integer);
 var
   Job_No : Integer;
   i : Integer;
+  ErrorCode : Array [1..6] of Integer;
   WhereStr : String;
-  OrdType : String;
+  OrdType, RackLoc : String;
 begin
 
   // 자동모드가 아니면 Exit
@@ -363,20 +363,50 @@ begin
   end;
 
   // Fillchar(gCVCW, sizeof(gCVCW), '0');
+  FillChar(ErrorCode, SizeOf(ErrorCode), 0);
 
   // 컨베이어 에러 발생시 지시를 끔
   for i := 1 to 6 do
   begin
     if(gCVCR[Device].Hogi[1].Error[i] = '1') then
     begin
+      ErrorCode[i] := i + 7;
+
+      // 이전 에러코드와 현재 에러코드가 같으면 나감
+      if (gOld_CV_Error_Code[Device][i] = ErrorCode[i]) then Exit;
+
       gCVCW[Device].Hogi[1].StriOrder[i] := '0';
 
       // TT_ORDER 에러상태표시 설정
-      WhereStr := ' NOW_MACH = ''CV'' ' +
-                  ' AND STATUS in (''CV이동'') ';
-      Job_No := Uf_GetOrderJobNo(Device, WhereStr);
+      Job_No := Uf_TrackGetJobNo(Device, i);
       Uf_SetOrder(IntToStr(Job_No), 'ERROR_STAT', '1');
-      Uf_SetOrder(IntToStr(Job_No), 'ERROR_CODE', FormatFloat('0000', i+7));
+      Uf_SetOrder(IntToStr(Job_No), 'ERROR_CODE', FormatFloat('0000', ErrorCode[i]));
+
+      // 에러 기록
+      RackLoc := Uf_GetOrder(IntToStr(Job_No), 'ORD_LOC');
+      ErrorWrite(FormatFloat('0000', ErrorCode[i]), 'CV', IntToStr(Job_No), RackLoc);
+
+      gOld_CV_Error_Code[Device][i] := ErrorCode[i];
+    end
+    // 에러가 아닌경우
+    else if (gCVCR[Device].Hogi[1].Error[i] = '0') then
+    begin
+      // 이전에 에러가 있었을 경우, (에러 해제시)
+      if (gOld_CV_Error_Code[Device][i] <> 0) then
+      begin
+        // 에러 해제 시간 기록
+        // TT_Track 작업번호 가져옴
+        Job_No := Uf_TrackGetJobNo(Device, i);
+
+        // 지시의 에러 삭제
+        Uf_SetOrder(IntToStr(Job_No), 'ERROR_STAT', '0');
+        Uf_SetOrder(IntToStr(Job_No), 'ERROR_CODE', '');
+
+        // 에러 해제 시각 기록
+        ErrorClear(FormatFloat('0000', gOld_CV_Error_Code[i]));
+
+        gOld_CV_Error_Code[Device][i] := 0;
+      end;
     end;
   end;
 
@@ -667,7 +697,7 @@ begin
     Old_RackLoc := Uf_GetOrder(IntToStr(Job_No), 'ORD_LOC');
 
     // 에러 기록
-    ErrorWrite(FormatFloat('0000', ErrorCode), IntToStr(Job_No), Old_RackLoc);
+    ErrorWrite(FormatFloat('0000', ErrorCode), 'SC', IntToStr(Job_No), Old_RackLoc);
 
     // 이중입고
     if (gSCCR.SC[1].Twin_In = '1') or
@@ -737,8 +767,10 @@ begin
 
     Exit;
   end
+  // 에러 아님
   else if (gSCCR.SC[1].Error = '0') then
   begin
+    // 이전에 에러가 있었을 경우, (에러 해제시)
     if (gOld_SC_Error_Code <> 0) then
     begin
       // TT_ORDER 작업번호 가져옴
@@ -749,8 +781,11 @@ begin
       Uf_SetOrder(IntToStr(Job_No), 'ERROR_STAT', '0');
       Uf_SetOrder(IntToStr(Job_No), 'ERROR_CODE', '');
 
-      // TC_Current 값 초기화
-      Uf_SetCurrent('SCDOUBLEIN', 'OPTION1', '0');
+      // 이중입고 TC_Current 값 초기화
+      if (gOld_SC_Error_Code = 42) then
+      begin
+        Uf_SetCurrent('SCDOUBLEIN', 'OPTION1', '0');
+      end;
 
       // 에러 해제 시각 기록
       ErrorClear(FormatFloat('0000', gOld_SC_Error_Code));
@@ -1006,8 +1041,7 @@ begin
   FillChar(gSCCR, SizeOf(gSCCR), '0');
   FillChar(gSCCW, SizeOf(gSCCW), '0');
 
-  FillChar(gOld_CV_Error,Sizeof(gOld_CV_Error),Ord('0'));
-  FillChar(gOld_SC_Error,Sizeof(gOld_SC_Error),Ord('0'));
+  FillChar(gOld_CV_Error_Code,Sizeof(gOld_CV_Error_Code),0);
 
   edtStep.Text := 'START';
 

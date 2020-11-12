@@ -267,10 +267,7 @@ object Dm_MainLib: TDm_MainLib
     Top = 8
   end
   object SP_CELL_FIND: TADOStoredProc
-    ConnectionString = 
-      'Provider=SQLOLEDB.1;Password=netis1234;Persist Security Info=Tru' +
-      'e;User ID=sa;Initial Catalog=WMS_SEOJIN;Data Source=192.168.0.12' +
-      '3,34333'
+    Connection = MainDatabase
     ProcedureName = 'PD_GET_EMPTY_RACK'
     Parameters = <
       item

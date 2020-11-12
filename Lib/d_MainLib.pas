@@ -93,7 +93,7 @@ type
     procedure InsertPGMHist(MENU_ID, HIST_TYPE, FUNC_NAME, EVENT_NAME, EVENT_DESC, COMMAND_TYPE, COMMAND_TEXT, PARAM, ERROR_MSG: String);
     function  InsertEPLT_ORDER(I_WMS_NO, I_ITEM_CODE, I_PLC_NO, I_QTY: String): String;
 
-    procedure ErrorWrite(ErrorCode, JOB_NO, ORD_LOC: String);
+    procedure ErrorWrite(ErrorCode, ErrorMach, JOB_NO, ORD_LOC: String);
     procedure ErrorClear(ErrorCode: String);
 
 var
@@ -2061,7 +2061,7 @@ end;
 //==============================================================================
 // ErrorWrite [에러기록]                                                      //
 //==============================================================================
-procedure ErrorWrite(ErrorCode, JOB_NO, ORD_LOC: String);
+procedure ErrorWrite(ErrorCode, ErrorMach, JOB_NO, ORD_LOC: String);
 var
   FileName : String;
   Msg : String;
@@ -2086,7 +2086,7 @@ begin
         StrSQL  := ' INSERT TT_ERROR ' +
                    ' SELECT ' +
                    '  ''D'' ' +                                // WMS_NO
-                   ', ''SC'' ' +                               // MACH_ID
+                   ', ''' + ErrorMach + ''' ' +                // MACH_ID
                    ', ''' + ErrorCode + ''' ' +                // ERR_CODE
                    ', GETDATE() ' +                            // ERR_START
                    ', Null ' +                                 // ERR_END
@@ -2096,7 +2096,7 @@ begin
                    ', '''' ' +                                 // UP_DT
                    ', CONVERT(VARCHAR(MAX), GETDATE(), 21) ' + // CR_DT
                    '   FROM TM_ERROR WITH (NOLOCK) ' +
-                   '  WHERE MACH_ID   = ''SC'' ' +
+                   '  WHERE MACH_ID   = '''+ ErrorMach + ''' ' +
                    '    AND ERR_CODE  = ''' + ErrorCode + ''' ' ;
         SQL.Text := StrSQL ;
         ExecSQL;
