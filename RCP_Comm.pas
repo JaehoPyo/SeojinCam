@@ -178,6 +178,7 @@ type
     tmrServer: TTimer;
     tmrLogFileCheck: TTimer;
     tmrUPD_ORDSEQSEL: TTimer;
+    tmrEPLTOut: TTimer;
 
     procedure AppException(Sender: TObject; E: Exception);
     procedure btnCommClick(Sender: TObject);
@@ -208,6 +209,7 @@ type
     procedure tmrLogFileCheckTimer(Sender: TObject);
     procedure tmrServerTimer(Sender: TObject);
     procedure tmrUPD_ORDSEQSELTimer(Sender: TObject);
+    procedure tmrEPLTOutTimer(Sender: TObject);
   private
     procedure LogFileDelete;
     function  DeleteRecodingFile(fileDir: String; iOption: integer): Boolean;
@@ -242,6 +244,7 @@ var
   gCommandFlag : Integer;
   gInOutFlag   : String;
   gDBConnected : Boolean;
+  gCVRead      : Boolean;  // PLC 2번 컨베어까지 데이터를 읽었을 경우에만 EPLT자동출고하도록 하기 위함
 
   gLogwriteDBConnection : Boolean;
   gLogwriteComport      : Boolean;
@@ -305,6 +308,7 @@ begin
       tmrConnectDB.Enabled     := True;
       tmrServer.Enabled        := True;
       tmrUPD_ORDSEQSEL.Enabled := True;
+      tmrEPLTOut.Enabled       := True;
     end
     else
     begin
@@ -317,6 +321,7 @@ begin
       tmrConnectDB.Enabled     := False;
       tmrServer.Enabled        := False;
       tmrUPD_ORDSEQSEL.Enabled := False;
+      tmrEPLTOut.Enabled       := False;
     end;
   except
     on e: Exception do
@@ -576,7 +581,7 @@ procedure TfrmMain.ControlProcess_SC;
 var
   Device : Integer; // PLC_NO
   Job_No : Integer;
-  i, j : Integer;
+  i, j, SC_JobCnt : Integer;
   CargoCnt : Integer;
   Rack_Loc, Old_RackLoc : String;
   ErrorCode : Integer;
@@ -795,20 +800,20 @@ begin
   end;
 
   // 입고,출고 번갈아가며 지시
-  if      gInOutFlag = ''         then gInOutFlag := '입고'
-  else if gInOutFlag = '입고'     then gInOutFlag := '출고'
-  else if gInOutFlag = '출고'     then gInOutFlag := 'EPLT출고'
-  else if gInOutFlag = 'EPLT출고' then gInOutFlag := '입고';
+  if      gInOutFlag = ''     then gInOutFlag := '입고'
+  else if gInOutFlag = '입고' then gInOutFlag := '출고'
+  else if gInOutFlag = '출고' then gInOutFlag := '입고';
 
   //====== 진행중인 작업 처리 ======//
-  if (Uf_GetOrderPLCNo(gInOutFlag, 'SC적재') > 0) or
-     (Uf_GetOrderPLCNo(gInOutFlag, 'SC하역') > 0) then
+  WhereStr := ' AND STATUS in (''SC적재'', ''SC하역'')' ;
+  SC_JobCnt := Uf_GetOrderCount(WhereStr);
+  if (SC_JobCnt = 1) then
   begin
     //** 진행중인 작업 처리 **//
     SC_JOB_Process;
   end
   //====== 스태커 작업이 없는 경우 새로운 지시 탐색 ======//
-  else
+  else if (SC_JobCnt = 0) then
   begin
     //** 스태커 대기상태 (작업지시 데이터 생성) **//
     if (gSCCR.SC[1].Job_Standby     = '1') and
@@ -821,7 +826,7 @@ begin
       edtStep.Text := 'READY';
 
       // 1. 작업(TT_ORDER)유무 확인
-      if (gInOutFlag = '입고') then
+      if (gInOutFlag = '입고') and (Uf_GetCurrent('SC_IN_USE', 'OPTION1') = 'True') then
       begin
         // CV완료인 지시의 PLC번호를 찾아옴.
         Device := Uf_GetOrderPLCNo(gInOutFlag, 'CV완료');
@@ -850,7 +855,7 @@ begin
           Job_No := Uf_GetOrderJobNo(Device, gInOutFlag, 'CV완료');
         end;
       end
-      else if (gInOutFlag = '출고') then
+      else if (gInOutFlag = '출고') and (Uf_GetCurrent('SC_OT_USE', 'OPTION1') = 'True') then
       begin
         // SC대기인 지시의 PLC번호를 찾아옴.
         Device := Uf_GetOrderPLCNo(gInOutFlag, 'SC대기');
@@ -878,38 +883,7 @@ begin
         begin
           Job_No := Uf_GetOrderJobNo(Device, gInOutFlag, 'SC대기');
         end;
-      end
-      else if (gInOutFlag = 'EPLT출고') then
-      begin
-        // 공팔레트 출고지시를 생성하기 위한 과정 임. 이후 출고는 일반 출고와 같음.
-        for i := 1 to 2 do
-        begin
-          // 1. PLC별 (전면 후면) 공팔레트 자동 출고 요청 확인
-          if (Uf_GetCurrent('AUTO_OUT_EPLT', 'OPTION' + IntToStr(i)) = 'False') then Continue;
-
-          CargoCnt := 0;
-          // 2. 컨베어 1~4 화물 갯수 확인
-          for j := 1 to 4 do
-          begin
-            if (gCVCR[i].Hogi[1].Exist[j] = '1') then Inc(CargoCnt);
-          end;
-
-          // 2.1 화물 갯수가 2개 이상이면 X
-          if (CargoCnt >= 2) then Continue;
-
-          // 3. 공팔렛트 출고 작업 갯수 확인. 2개 이상이면 X
-          if(Uf_GetOrderCount(IntToStr(i), '출고', '파레트출고') >= 2) then Continue;
-
-          // 위 조건들을 통과하면 공팔렛트출고지시를 만듦. (2개 만듦)
-          for j := 1 to 2 do
-          begin
-            InsertEPLT_ORDER('D', 'EPLT', IntToStr(i), '1');
-          end;
-        end;
-
-        Exit;
       end;
-
 
       // 1.1 작업을 못찾았을 경우 Exit
       if ((Device < 0) or (Job_No < 0)) then Exit;
@@ -1045,6 +1019,8 @@ begin
 
   edtStep.Text := 'START';
 
+  gCVRead := False;
+
   gLogwriteDBConnection := False;   //통신로그를 연속해서 찍지 않기
   gUf_GetCVCRead        := False;   //통신로그를 연속해서 찍지 않기
   gUf_GetSCRRead        := False;   //통신로그를 연속해서 찍지 않기
@@ -1117,6 +1093,12 @@ begin
 
         // DB(Table:TC_CVCW)에 쓰기& PLC에 쓰기
         CVCW_Write(Device);
+
+        // 프로그램 실행 후 최초 PLC2번까지 읽었을 경우.
+        if (Device = 2) then
+        begin
+          gCVRead := True;
+        end;
       end
       // SC 응답인 경우
       else if(dataCount = 3) then
@@ -1811,7 +1793,50 @@ begin
 end;
 
 //------------------------------------------------------------------------------
-// tmrMainTimer : 통신 Timer Event : 1000 ms (1초)
+// tmrEPLTOutTimer : 공파레트 자동출고 지시
+//------------------------------------------------------------------------------
+procedure TfrmMain.tmrEPLTOutTimer(Sender: TObject);
+var
+  i, j, CargoCnt: Integer;
+  WhereStr : String;
+begin
+
+  // PLC 2번 컨베어까지 데이터를 읽었을 경우에만 실행하도록 하기 위함
+  if (gCVRead = false ) then Exit;
+
+  // 공팔레트 출고지시를 생성하기 위한 과정 임. 이후 출고는 일반 출고와 같음.
+  for i := 1 to 2 do
+  begin
+    // 1. PLC별 (전면 후면) 공팔레트 자동 출고 요청 확인
+    if (Uf_GetCurrent('AUTO_OUT_EPLT', 'OPTION' + IntToStr(i)) = 'False') then Continue;
+
+    CargoCnt := 0;
+    // 2. 컨베어 1~4 화물 갯수 확인
+    for j := 1 to 4 do
+    begin
+      if (gCVCR[i].Hogi[1].Exist[j] = '1') then Inc(CargoCnt);
+    end;
+
+    // 2.1 화물 갯수가 2개 이상이면 X
+    if (CargoCnt >= 2) then Continue;
+
+    // 3. 공팔렛트 출고 작업 갯수 확인. 2개 이상이면 X
+    WhereStr := ' AND PLC_NO   = ' + QuotedStr(IntToStr(i)) +
+                ' AND ORD_IO   = ' + QuotedStr('출고') +
+                ' AND ORD_TYPE = ' + QuotedStr('파레트출고');
+    if(Uf_GetOrderCount(WhereStr) >= 2) then Continue;
+
+    // 위 조건들을 통과하면 공팔렛트출고지시를 만듦. (2개 만듦)
+    for j := 1 to 2 do
+    begin
+      InsertEPLT_ORDER('D', 'EPLT', IntToStr(i), '1');
+    end;
+  end;
+
+end;
+
+//------------------------------------------------------------------------------
+// tmrMainTimer : 통신 Timer Event
 //------------------------------------------------------------------------------
 procedure TfrmMain.tmrMainTimer(Sender: TObject);
 var

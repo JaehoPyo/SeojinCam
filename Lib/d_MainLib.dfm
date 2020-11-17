@@ -275,24 +275,28 @@ object Dm_MainLib: TDm_MainLib
         DataType = ftInteger
         Direction = pdReturnValue
         Precision = 10
+        Value = Null
       end
       item
         Name = '@I_TYPE'
         Attributes = [paNullable]
         DataType = ftString
         Size = 50
+        Value = Null
       end
       item
         Name = '@I_PLC_NO'
         Attributes = [paNullable]
         DataType = ftString
         Size = 2
+        Value = Null
       end
       item
         Name = '@I_SC'
         Attributes = [paNullable]
         DataType = ftString
         Size = 2
+        Value = Null
       end
       item
         Name = '@O_RACK_LOC'
@@ -300,6 +304,7 @@ object Dm_MainLib: TDm_MainLib
         DataType = ftString
         Direction = pdInputOutput
         Size = 8
+        Value = Null
       end>
     Left = 304
     Top = 9

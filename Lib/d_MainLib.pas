@@ -75,7 +75,7 @@ type
     function  Uf_GetOrderJobNo(Device: Integer; IO, Status: String ): Integer; overload;
     function  Uf_GetOrderJobNo(Device: Integer; WhereStr: String): Integer; overload;
     function  Uf_GetOrderPLCNo(IO, Status: String): Integer;
-    function  Uf_GetOrderCount(Device, IO, ORD_TYPE: String) : Integer;
+    function  Uf_GetOrderCount(WhereStr: String) : Integer;
     function  Uf_GetOrder(Job_No, Field: String): String;
     procedure Uf_SetOrder(Job_No, Field, Value: String);
     procedure Uf_DeleteOrder(Job_No: String);
@@ -1313,10 +1313,6 @@ begin
 
   if (IO = '') or (Status = '') then Exit;
 
-  // EPLT출고는 출고 지시만 내림
-  if (IO = 'EPLT출고') then Exit;
-
-
   try
     with Dm_MainLib.qryOrderGet do
     begin
@@ -1365,13 +1361,13 @@ end;
 //==============================================================================
 // Uf_GetOrderCount : IO: '입고', '출고'. ORD_TYPE: '파레트 출고' 등
 //==============================================================================
-function Uf_GetOrderCount(Device, IO, ORD_TYPE: String) : Integer;
+function Uf_GetOrderCount(WhereStr: String) : Integer;
 var
   FileName : String;
   Msg : String;
   StrSQL : String;
 begin
-  if (IO = '') or (ORD_TYPE = '') then Exit;
+  if (WhereStr = '') then Exit;
 
   try
     with Dm_MainLib.qryErrorMsgGet do
@@ -1379,9 +1375,7 @@ begin
       Close;
       StrSQL := ' SELECT COUNT(*) as CNT ' +
                 '   FROM TT_ORDER WITH(NOLOCK) ' +
-                '  WHERE  PLC_NO  = ' + QuotedStr(Device) +
-                '    AND ORD_IO   = ' + QuotedStr(IO) +
-                '    AND ORD_TYPE = ' + QuotedStr(ORD_TYPE);
+                '  WHERE 1=1 ' + WhereStr;
       SQL.Text := StrSQL;
       Open;
 

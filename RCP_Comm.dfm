@@ -1462,4 +1462,10 @@ object frmMain: TfrmMain
     Left = 366
     Top = 221
   end
+  object tmrEPLTOut: TTimer
+    Enabled = False
+    OnTimer = tmrEPLTOutTimer
+    Left = 406
+    Top = 221
+  end
 end
