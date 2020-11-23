@@ -452,9 +452,9 @@ begin
     gCVCW[Device].Hogi[1].StriOrder[3] := '1';
   end;
 
-  // CV4번 지시완료 및 생성 (입고)
-  if (gCVCR[Device].Hogi[1].Exist[4] = '1') and
-     (gCVCR[Device].Hogi[1].JobDone  = '1') then
+  // CV4번 지시완료 및 생성 (입고)   (화물有 and 설비 작업완료신호) or (화물有 and WMS 작업완료신호)
+  if ((gCVCR[Device].Hogi[1].Exist[4] = '1') and (gCVCR[Device].Hogi[1].JobDone  = '1')) or
+     ((gCVCR[Device].Hogi[1].Exist[4] = '1') and (Uf_GetCurrent('CVJOBEND', 'OPTION' + IntToStr(Device)) = 'True')) then
   begin
     // 작업완료 표시벨 소등
     gCVCW[Device].Hogi[1].CompleteBell := '0';
