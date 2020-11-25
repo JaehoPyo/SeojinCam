@@ -1120,6 +1120,9 @@ begin
         for i := 1 to wordCnt do
         begin
           convStr := Copy(tmpStr, (i * 4) + 1, 4);
+          // Reverse
+          //convStr := Copy(tmpStr, (i * 4) + 3, 2);
+          //convStr := Copy(tmpStr, (i * 2) + 1, 2);
           dataStr := dataStr + convStr;
         end;
 
@@ -1474,7 +1477,7 @@ begin
 end;
 
 //------------------------------------------------------------------------------
-//  SCCW_Write : TC_CVCW에 기록 및 PLC전송
+//  SCCW_Write : TC_SCCW에 기록 및 PLC전송
 //------------------------------------------------------------------------------
 procedure TfrmMain.SCCW_Write;
 var
