@@ -2,7 +2,7 @@ object frmMain: TfrmMain
   Left = 0
   Top = 0
   Caption = #51088#46041#52285#44256' '#51228#50612#54532#47196#44536#47016
-  ClientHeight = 791
+  ClientHeight = 811
   ClientWidth = 464
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -20,18 +20,20 @@ object frmMain: TfrmMain
     Left = 0
     Top = 0
     Width = 464
-    Height = 771
+    Height = 791
     Align = alClient
     BevelOuter = bvNone
     TabOrder = 0
+    ExplicitHeight = 771
     object Panel2: TPanel
       Left = 0
-      Top = 730
+      Top = 750
       Width = 464
       Height = 41
       Align = alBottom
       BevelInner = bvLowered
       TabOrder = 0
+      ExplicitTop = 730
       object btnComm: TButton
         Left = 380
         Top = 6
@@ -113,7 +115,7 @@ object frmMain: TfrmMain
       Left = 0
       Top = 0
       Width = 464
-      Height = 730
+      Height = 750
       Align = alClient
       BevelInner = bvLowered
       Font.Charset = ANSI_CHARSET
@@ -123,11 +125,12 @@ object frmMain: TfrmMain
       Font.Style = []
       ParentFont = False
       TabOrder = 1
+      ExplicitHeight = 730
       object PageControl: TPageControl
         Left = 2
         Top = 2
         Width = 460
-        Height = 726
+        Height = 746
         ActivePage = TabSheet1
         Align = alClient
         Font.Charset = ANSI_CHARSET
@@ -137,6 +140,7 @@ object frmMain: TfrmMain
         Font.Style = []
         ParentFont = False
         TabOrder = 0
+        ExplicitHeight = 726
         object TabSheet1: TTabSheet
           Caption = #53685#49888#49345#53468
           Font.Charset = ANSI_CHARSET
@@ -145,24 +149,27 @@ object frmMain: TfrmMain
           Font.Name = #46027#50880
           Font.Style = []
           ParentFont = False
+          ExplicitHeight = 697
           object Panel7: TPanel
             Left = 0
             Top = 0
             Width = 450
-            Height = 697
+            Height = 717
             Align = alClient
             BevelOuter = bvNone
             ParentBackground = False
             TabOrder = 0
+            ExplicitHeight = 697
             object Panel6: TPanel
               Left = 0
-              Top = 585
+              Top = 605
               Width = 450
               Height = 112
               Align = alBottom
               BevelInner = bvLowered
               BevelOuter = bvNone
               TabOrder = 0
+              ExplicitTop = 585
               object mmErrorLog: TMemo
                 Left = 1
                 Top = 1
@@ -176,35 +183,38 @@ object frmMain: TfrmMain
             end
             object Panel8: TPanel
               Left = 0
-              Top = 583
+              Top = 603
               Width = 450
               Height = 2
               Align = alBottom
               BevelOuter = bvNone
               ParentBackground = False
               TabOrder = 1
+              ExplicitTop = 583
             end
             object mmCommLog: TMemo
               Left = 0
               Top = 0
               Width = 450
-              Height = 583
+              Height = 603
               Align = alClient
               Lines.Strings = (
                 'mmCommLog'
                 '')
               TabOrder = 2
+              ExplicitHeight = 583
             end
           end
           object Panel5: TPanel
             Left = 450
             Top = 0
             Width = 2
-            Height = 697
+            Height = 717
             Align = alRight
             BevelOuter = bvNone
             ParentBackground = False
             TabOrder = 1
+            ExplicitHeight = 697
           end
         end
         object TabSheet2: TTabSheet
@@ -216,33 +226,37 @@ object frmMain: TfrmMain
           Font.Style = []
           ImageIndex = 1
           ParentFont = False
+          ExplicitHeight = 697
           object Panel4: TPanel
             Left = 0
             Top = 0
             Width = 452
-            Height = 697
+            Height = 717
             Align = alClient
             BevelInner = bvLowered
             BevelOuter = bvNone
             ParentBackground = False
             TabOrder = 0
+            ExplicitHeight = 697
             object GroupBox1: TGroupBox
               Left = 1
               Top = 265
               Width = 450
-              Height = 431
+              Height = 451
               Align = alClient
               Caption = 'Conveyor'
               TabOrder = 0
+              ExplicitHeight = 431
               object Panel13: TPanel
                 Left = 2
                 Top = 15
                 Width = 225
-                Height = 414
+                Height = 434
                 Align = alLeft
                 BevelInner = bvRaised
                 BevelOuter = bvLowered
                 TabOrder = 0
+                ExplicitHeight = 414
                 object Panel14: TPanel
                   Left = 2
                   Top = 2
@@ -256,7 +270,7 @@ object frmMain: TfrmMain
                   Left = 2
                   Top = 18
                   Width = 221
-                  Height = 58
+                  Height = 78
                   Margins.Top = 0
                   Align = alTop
                   Caption = 'CV'#51648#49884'(PC'#8594'PLC)'
@@ -309,15 +323,26 @@ object frmMain: TfrmMain
                     Caption = '6 '#8594' 7'
                     TabOrder = 5
                   end
+                  object cbCV1_Complete: TCheckBox
+                    Left = 3
+                    Top = 56
+                    Width = 78
+                    Height = 17
+                    Caption = #51089#50629#50756#47308
+                    TabOrder = 6
+                  end
                 end
                 object GroupBox5: TGroupBox
                   Left = 2
-                  Top = 76
+                  Top = 96
                   Width = 221
                   Height = 336
                   Align = alClient
                   Caption = 'CV'#49345#53468'(PLC'#8594'PC)'
                   TabOrder = 2
+                  ExplicitLeft = 3
+                  ExplicitTop = 78
+                  ExplicitHeight = 356
                   object cbCV1_1: TCheckBox
                     Left = 3
                     Top = 18
@@ -580,11 +605,12 @@ object frmMain: TfrmMain
                 Left = 227
                 Top = 15
                 Width = 221
-                Height = 414
+                Height = 434
                 Align = alClient
                 BevelInner = bvRaised
                 BevelOuter = bvLowered
                 TabOrder = 1
+                ExplicitHeight = 414
                 object Panel16: TPanel
                   Left = 2
                   Top = 2
@@ -598,7 +624,7 @@ object frmMain: TfrmMain
                   Left = 2
                   Top = 18
                   Width = 217
-                  Height = 58
+                  Height = 78
                   Margins.Top = 0
                   Align = alTop
                   Caption = 'CV'#51648#49884'(PLC'#8594'PC)'
@@ -651,15 +677,24 @@ object frmMain: TfrmMain
                     Caption = '6 '#8594' 7'
                     TabOrder = 5
                   end
+                  object cbCV2_Complete: TCheckBox
+                    Left = 3
+                    Top = 56
+                    Width = 78
+                    Height = 17
+                    Caption = #51089#50629#50756#47308
+                    TabOrder = 6
+                  end
                 end
                 object GroupBox6: TGroupBox
                   Left = 2
-                  Top = 76
+                  Top = 96
                   Width = 217
                   Height = 336
                   Align = alClient
                   Caption = 'CV'#49345#53468'(PLC'#8594'PC)'
                   TabOrder = 2
+                  ExplicitTop = 76
                   object cbCV2_1: TCheckBox
                     Left = 3
                     Top = 18
@@ -1257,12 +1292,13 @@ object frmMain: TfrmMain
   end
   object pnlStatusBar: TPanel
     Left = 0
-    Top = 771
+    Top = 791
     Width = 464
     Height = 20
     Align = alBottom
     BevelOuter = bvNone
     TabOrder = 1
+    ExplicitTop = 771
     object pnlStatusPanel4: TPanel
       Left = 385
       Top = 0

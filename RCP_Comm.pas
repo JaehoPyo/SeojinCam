@@ -179,6 +179,8 @@ type
     tmrLogFileCheck: TTimer;
     tmrUPD_ORDSEQSEL: TTimer;
     tmrEPLTOut: TTimer;
+    cbCV1_Complete: TCheckBox;
+    cbCV2_Complete: TCheckBox;
 
     procedure AppException(Sender: TObject; E: Exception);
     procedure btnCommClick(Sender: TObject);
@@ -295,13 +297,13 @@ begin
         FrontPLCSocket.Open();
       end;
 
-      // 후면 plc 접속
-      if (not RearPLCSocket.Active) then
-      begin
-        RearPLCSocket.Address := INIRead(INI_PATH, 'PLC2', 'IP'  , ''); //Uf_GetComset('컨베이어2', 'ID_IP');
-        RearPLCSocket.Port    := StrToInt(INIRead(INI_PATH, 'PLC2', 'PORT', '')); //StrToInt(Uf_GetComset('컨베이어2', 'ID_PORT'));
-        RearPLCSocket.Open();
-      end;
+//      // 후면 plc 접속
+//      if (not RearPLCSocket.Active) then
+//      begin
+//        RearPLCSocket.Address := INIRead(INI_PATH, 'PLC2', 'IP'  , ''); //Uf_GetComset('컨베이어2', 'ID_IP');
+//        RearPLCSocket.Port    := StrToInt(INIRead(INI_PATH, 'PLC2', 'PORT', '')); //StrToInt(Uf_GetComset('컨베이어2', 'ID_PORT'));
+//        RearPLCSocket.Open();
+//      end;
 
       btnComm.Caption := '통신멈춤';
       tmrMain.Enabled          := True;
@@ -457,7 +459,23 @@ begin
      ((gCVCR[Device].Hogi[1].Exist[4] = '1') and (Uf_GetCurrent('CVJOBEND', 'OPTION' + IntToStr(Device)) = 'True')) then
   begin
     // 작업완료 표시벨 소등
-    gCVCW[Device].Hogi[1].CompleteBell := '0';
+//    gCVCW[Device].Hogi[1].CompleteBell := '0';
+
+    // 파레트 입고 작업 있는 경우
+    WhereStr := ' AND ORD_IO = ''입고'' ' +
+                ' AND STATUS = ''CV대기'' ' +
+                ' AND ORD_TYPE = ''파레트입고'' ';
+    Job_No := Uf_GetOrderJobNo(Device, WhereStr);
+    if(Job_No <> -1) then
+    begin
+      // 트랙데이터 생성 & 지시 상태 변경 : CV대기 -> CV이동
+      Uf_TrackIPGOSet(Job_No, Device, 4);
+
+      // 작업완료 표시등 소등
+      gCVCW[Device].Hogi[1].CompleteBell := '0';
+      Exit;
+    end;
+
 
     WhereStr := ' AND ORD_IO = ' + QuotedStr('출고') +
                 ' AND STATUS = ' + QuotedStr('CV완료');
@@ -509,22 +527,24 @@ begin
       // 트랙데이터 생성 & 지시 상태 변경
       Uf_TrackIPGOSet(Job_No, Device, 4);
     end
-    //**** 완료된 파레트출고 지시 있음 -> 팔레트 입고 지시 생성 & 출고지시 삭제
+    //**** 완료된 파레트출고 지시 있음 -> 품목 입고 지시 확인 후 작업 & 출고지시 삭제
     else if (OrdType = '파레트출고') then
     begin
-      // 완료된 [파레트출고] 지시 삭제
-      Uf_DeleteOrder(IntToStr(Job_No));
-
-      // 트랙데이터 제거
-      Uf_TrackDataSet('', 0, Device, 4);
-
       // 입고지시의 작업번호 가져옴
       WhereStr := ' AND ORD_IO = ' + QuotedStr('입고') +
                   ' AND STATUS = ' + QuotedStr('CV대기') +
                   ' AND ORD_SEQ_SEL = 1' ;
       Job_No := Uf_GetOrderJobNo(Device, WhereStr);
 
-      // 트랙데이터 생성 & 지시 상태 변경
+      if (Job_No = -1) then Exit;
+
+      // 완료된 [파레트출고] 지시 삭제
+      Uf_DeleteOrder(IntToStr(Job_No));
+
+      // 트랙데이터 제거
+      Uf_TrackDataSet('', 0, Device, 4);
+
+      // 트랙데이터 생성 & 지시 상태 변경 : CV대기 -> CV이동
       Uf_TrackIPGOSet(Job_No, Device, 4);
     end;
   end;
@@ -536,18 +556,16 @@ begin
      (Uf_TrackDataCheck(Device, 4) = True ) and
      (Uf_TrackDataCheck(Device, 5) = False) then
   begin
-    WhereStr := ' AND ORD_IO = ' + QuotedStr('출고') +
-                ' AND STATUS = ' + QuotedStr('CV완료') +
+    WhereStr := ' AND STATUS = ' + QuotedStr('CV이동') +
                 ' AND JOB_NO = ' + QuotedStr(IntToStr(Uf_TrackGetJobNo(Device, 4))) ;
     Job_No := Uf_GetOrderJobNo(Device, WhereStr);
     if (Job_No <> -1) then
     begin
-      gCVCW[Device].Hogi[1].StriOrder[4] := '0';
+      gCVCW[Device].Hogi[1].StriOrder[4] := '1';
     end
     else
     begin
-      // CV4 직진 명령 설정
-      gCVCW[Device].Hogi[1].StriOrder[4] := '1';
+      gCVCW[Device].Hogi[1].StriOrder[4] := '0';
     end;
   end;
 
@@ -598,7 +616,7 @@ begin
   end;
 
   // TC_SCCW에 쓴 내용을 다시 읽어서 쓰기 버퍼(gSCCW)에 저장
-  Uf_GetSCWRead;
+ // Uf_GetSCWRead;
 
   //** 스태커 작업중 상태 **//
   if (gSCCR.SC[1].Job_Standby = '0') and
@@ -900,7 +918,7 @@ begin
       end;
 
       // 2. gSCCW구조체 구성(SC Write 구조체), (Device와 Job_No는 1에서 찾아왔음)
-      FillChar(gSCCW, SizeOf(gSCCW), chr($00));
+      FillChar(gSCCW, SizeOf(gSCCW), '0');
       Uf_SC_WriteDataSet(Device, Job_No, gInOutFlag);
 
       // 3. 지시 상태 변경 'SC대기' -> 'SC지시'
@@ -919,6 +937,7 @@ end;
 procedure TfrmMain.CVCW_Write(Device: Integer);
 var
   dataStr : AnsiString;
+  convStr : AnsiString;
 begin
 
   // 자동모드가 아니면 Exit
@@ -935,13 +954,13 @@ begin
   Uf_TableWirte_CVCW(Device, dataStr);
 
   // reverse
-  //dataStr := ReverseString(dataStr);
+  dataStr := ReverseString(dataStr);
 
   // bin to hex
   dataStr := StrBinToStrHex(dataStr);
 
   // PLC에 쓰기
-  dataStr := '00WSB' + '07' + '%MW2950' + '01' + dataStr;
+  dataStr := ENQ + '00WSB' + '07' + '%MW2950' + '01' + dataStr + EOT;
   PLCWrite(Device, 'CV', dataStr);
 
 end;
@@ -1051,23 +1070,23 @@ begin
      // ACK 00 RSB    04 123456789ABC ETX  Block 갯수가 없는 경우
      // ACK 00 RSB 01 04 123456789ABC ETX   Block 갯수가 있는 경우
 //      blockcount가 있을 경우를 대비하여
-//      blockCount := StrToInt('$' + Copy(gWholePacket[Device], 7, 2));
-//      dataCount := StrToInt('$' + Copy(gWholePacket[Device], 9, 2));
+      blockCount := StrToInt('$' + Copy(gWholePacket[Device], 7, 2));
+      dataCount := StrToInt('$' + Copy(gWholePacket[Device], 9, 2));
 
-      dataCount := StrToInt('$' + Copy(gWholePacket[Device], 7, 2));
+      //dataCount := StrToInt('$' + Copy(gWholePacket[Device], 7, 2));
 
       // CV 응답인 경우 (데이터갯수로 구분) cv: 2word 8글자, SC: 3word 12글자
-      if(dataCount = 2) then
+      if(dataCount = 4) then
       begin
         // Bit 데이터 -> 2word 사용
         bitWordCnt := 2;
 
         // 변환해서 넣어줘야함
-        tmpStr := Copy(gWholePacket[Device], 9, dataCount * 4);
+        tmpStr := Copy(gWholePacket[Device], 11, dataCount*2);
         for i := 0 to bitWordCnt - 1 do
         begin
           convStr := StrHexToStrBin(Copy(tmpStr, (i * 4) + 1, 4)); // '1234' -> '0001 0010 0011 0100'
-          //convStr := ReverseString(convStr);                       // '0001 0010 0011 0100' -> '0010 1100 0100 1000'
+          convStr := ReverseString(convStr);                       // '0001 0010 0011 0100' -> '0010 1100 0100 1000'
           dataStr := dataStr + convStr;
         end;
 
@@ -1075,7 +1094,7 @@ begin
         Uf_TableWirte_CVCR(Device, dataStr);
 
         // 변환한 dataStr 값을 버퍼에 넣음
-        Fillchar(gCVCR[Device], sizeof(gCVCR[Device]), chr($00));
+        //Fillchar(gCVCR[Device], sizeof(gCVCR[Device]), chr('0'));
         StrMove(@gCVCR[Device].All, PAnsiChar(dataStr), Length(dataStr)); // StrMove참고:StrMove(@gSCCR.All[1], PChar(@gWholePacket1[9]), dataCount*2);
         CommLogWrite(Device, 'PLC#' + IntToStr(Device) + '_' + 'CV_' + 'Recv Convert[' + gCVCR[Device].All + ']');
 
@@ -1101,31 +1120,36 @@ begin
         end;
       end
       // SC 응답인 경우
-      else if(dataCount = 3) then
+      else if(dataCount = 6) then
       begin
         // Bit 데이터 -> 1word 사용
         bitWordCnt := 1;
 
         // 변환해서 넣어줘야함
-        tmpStr := Copy(gWholePacket[Device], 9, dataCount * 4);
+        tmpStr := Copy(gWholePacket[Device], 11, dataCount*2);
         for i := 0 to bitWordCnt - 1 do
         begin
           convStr := StrHexToStrBin(Copy(tmpStr, (i * 4) + 1, 4)); // '1234' -> '0001 0010 0011 0100'
-          //convStr := ReverseString(convStr);                       // '0001 0010 0011 0100' -> '0010 1100 0100 1000'
+          convStr := ReverseString(convStr);                       // '0001 0010 0011 0100' -> '0010 1100 0100 1000'
           dataStr := dataStr + convStr;
         end;
 
         // Word 데이터 2Word 사용
         wordCnt := 2;
-        for i := 1 to wordCnt do
-        begin
-          convStr := Copy(tmpStr, (i * 4) + 1, 4);
-          // Reverse
-          //convStr := Copy(tmpStr, (i * 4) + 3, 2);
-          //convStr := Copy(tmpStr, (i * 2) + 1, 2);
-          dataStr := dataStr + convStr;
-        end;
+//        for i := 1 to wordCnt do
+//        begin
+//          //convStr := Copy(tmpStr, (i * 4) + 1, 4);
+//          // Reverse
+//          convStr := Copy(tmpStr, (i * 6) + 3, 2);
+//          convStr := Copy(tmpStr, (i * 4) + 1, 2);
+//          dataStr := dataStr + convStr;
+//        end;
+        convStr := Copy(tmpStr, 7, 2);
+        convStr := convStr + Copy(tmpStr, 5, 2);
+        convStr := convStr + Copy(tmpStr, 11, 2);
+        convStr := convStr + Copy(tmpStr, 9, 2);
 
+        dataStr := dataStr + convStr;
         // DB(Table:TC_SCCR)에 쓰기
         Uf_TableWirte_SCCR(Device, dataStr);
 
@@ -1504,14 +1528,14 @@ begin
   // original
   dataStr := Copy(gSCCW.SC[1].All, 0, 16); // 00000000 00000000
   // reverse
-  //dataStr := ReverseString(dataStr);
+  dataStr := ReverseString(dataStr);
   // bin to hex
   dataStr := StrBinToStrHex(dataStr);
-  dataStr := dataStr + Copy(gSCCW.SC[1].Bay, 1, 2);
   dataStr := dataStr + Copy(gSCCW.SC[1].Level, 1, 2);
+  dataStr := dataStr + Copy(gSCCW.SC[1].Bay, 1, 2);
 
   // PLC에 쓰기
-  dataStr := '00WSB' + '05' + '%MW50' + '02' + dataStr;
+  dataStr := ENQ + '00WSB' + '05' + '%MW50' + '02' + dataStr + EOT;
   PLCWrite(1, 'SC', dataStr);
 
 end;
@@ -1748,6 +1772,8 @@ begin
     CheckBox := (FindComponent('cbCV' + PLC_NO + '_go' + IntToStr(i)) as TCheckBox);
     CheckBox.Checked := Boolean(StrToIntDef(gCVCW[Device].Hogi[1].StriOrder[i], 0));
   end;
+  CheckBox := (FindComponent('cbCV' + PLC_NO + '_Complete') as TCheckBox);
+  CheckBox.Checked := Boolean(StrToIntDef(gCVCW[Device].Hogi[1].CompleteBell, 0));
 end;
 
 //------------------------------------------------------------------------------
@@ -1876,6 +1902,20 @@ begin
     end;
     2 :
     begin
+//      if (not RearPLCSocket.Active) then
+//      begin
+//        CommLogWrite(2, 'FrontPLCSocket is not activated');
+//      end
+//      else
+//      begin
+//        // ENQ + data + EOT
+//        // 연속읽기 요구 : 국번(00) + RSB + (변수길이) + 변수명 + 읽을워드수
+//        dataStr := ENQ + '00'+ 'RSB'+'07'+'%MW2952'+'02' + EOT;
+//        PLCWrite(2, 'CV', dataStr);
+//      end;
+    end;
+    3 :
+    begin
       if (not FrontPLCSocket.Active) then
       begin
         CommLogWrite(1, 'FrontPLCSocket is not activated');
@@ -1884,21 +1924,7 @@ begin
       begin
         // ENQ + data + EOT
         // 연속읽기 요구 : 국번(00) + RSB + (변수길이) + 변수명 + 읽을워드수
-        dataStr := ENQ + '00'+ 'RSB'+'07'+'%MW2952'+'02' + EOT;
-        PLCWrite(2, 'CV', dataStr);
-      end;
-    end;
-    3 :
-    begin
-      if (not RearPLCSocket.Active) then
-      begin
-        CommLogWrite(2, 'RearPLCSocket is not activated');
-      end
-      else
-      begin
-        // ENQ + data + EOT
-        // 연속읽기 요구 : 국번(00) + RSB + (변수길이) + 변수명 + 읽을워드수
-        dataStr := ENQ + '00'+ 'RSB'+'05'+'%MW52'+'03' + EOT;
+        dataStr := ENQ + '00'+ 'RSB'+'05'+'%MW70'+'03' + EOT;
         PLCWrite(1, 'SC', dataStr);
       end;
     end;
@@ -1914,17 +1940,17 @@ procedure TfrmMain.tmrServerTimer(Sender: TObject);
 begin
   if (not FrontPLCSocket.Active) then
   begin
-    btnComm.Caption := '통신시작';
+    //btnComm.Caption := '통신시작';
     ShpMFCInterfaceConn1.Brush.Color := CONN_STATUS_COLOR[0];
     FrontPLCSocket.Open;
   end;
 
-  if (not RearPLCSocket.Active) then
-  begin
-    btnComm.Caption := '통신시작';
-    ShpMFCInterfaceConn2.Brush.Color := CONN_STATUS_COLOR[0];
-    RearPLCSocket.Open;
-  end;
+//  if (not RearPLCSocket.Active) then
+//  begin
+//    btnComm.Caption := '통신시작';
+//    ShpMFCInterfaceConn2.Brush.Color := CONN_STATUS_COLOR[0];
+//    RearPLCSocket.Open;
+//  end;
 
   if (FrontPLCSocket.Active and RearPLCSocket.Active) then
   begin
@@ -1953,12 +1979,40 @@ end;
 procedure TfrmMain.TrackingProcess_CV(Device: Integer);
 var
   Job_No : Integer;
+  WhereStr : string;
 begin
   // 자동모드가 아닌 경우 Exit
   if (gCVCR[Device].Hogi[1].AutoMode = '0') or
      (rgCV.ItemIndex = 1) then
   begin
     Exit;
+  end;
+
+  // 지시의 CV완료시 작업완료 표시
+  WhereStr := ' AND STATUS = ''CV완료'' ' +
+              ' AND ORD_IO = ''출고'' ';
+  Job_No := Uf_GetOrderJobNo(Device, WhereStr);
+  if (gCVCR[Device].Hogi[1].Exist[4] = '1') and
+     (Uf_TrackDataCheck(Device, 1) = True) and
+     (Job_No <> -1)then
+  begin
+    gCVCW[Device].Hogi[1].CompleteBell := '1';
+  end
+  else
+  begin
+    WhereStr := ' AND STATUS = ''CV대기'' ' +
+                ' AND ORD_IO = ''입고'' ' +
+                ' AND ORD_TYPE = ''파레트입고'' ';
+    Job_No := Uf_GetOrderJobNo(Device, WhereStr);
+    if (Job_No <> -1) and
+       (gCVCR[Device].Hogi[1].Exist[4] = '1') then
+    begin
+      gCVCW[Device].Hogi[1].CompleteBell := '1';
+    end
+    else
+    begin
+      gCVCW[Device].Hogi[1].CompleteBell := '0';
+    end;
   end;
 
   // CV 1->2 이동 완료처리 : 1->2 데이터 이동
@@ -2011,16 +2065,16 @@ begin
     Uf_SetOrder(IntToStr(Job_No), 'END_YN', 'Y');
     Uf_SetOrder(IntToStr(Job_No), 'NOW_SITE', IntToStr(Device) + '4');
 
-    // 파레트출고일 때에만 출고 작업완료 표시벨 소등
-    if (Uf_GetOrder(IntToStr(Job_No), 'ORD_TYPE') = '파레트출고') then
-    begin
-      gCVCW[Device].Hogi[1].CompleteBell := '0';
-    end
-    // 부분출고, 품목출고일 때에는 출고작업완료 표시벨 점등
-    else
-    begin
-      gCVCW[Device].Hogi[1].CompleteBell := '1';
-    end;
+//    // 파레트출고일 때에만 출고 작업완료 표시벨 소등
+//    if (Uf_GetOrder(IntToStr(Job_No), 'ORD_TYPE') = '파레트출고') then
+//    begin
+//      gCVCW[Device].Hogi[1].CompleteBell := '0';
+//    end
+//    // 부분출고, 품목출고일 때에는 출고작업완료 표시벨 점등
+//    else
+//    begin
+//      gCVCW[Device].Hogi[1].CompleteBell := '1';
+//    end;
 
     // CV3 직진지시 OFF
     gCVCW[Device].Hogi[1].StriOrder[3] := '0';

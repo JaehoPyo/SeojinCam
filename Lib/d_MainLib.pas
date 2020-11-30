@@ -367,7 +367,7 @@ var
   StrSQL : String;
 begin
   if (Buff_No = 1) then Exit;
-
+  Result := -1;
   try
     with Dm_MainLib.qryTrackGetJobNo do
     begin
@@ -378,8 +378,11 @@ begin
                 '    AND BUFF_NO = ' + IntToStr(Buff_No);
       SQL.Text := StrSQL;
       Open;
-      if (isEmpty) then Result := -1
-      else Result := FieldByName('JOB_NO').AsInteger;
+
+      if (StrToIntDef(FieldByName('JOB_NO').AsString, 0) > 0) then
+      begin
+        Result := FieldByName('JOB_NO').AsInteger;
+      end;
       Close;
     end;
   except
