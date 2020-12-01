@@ -131,7 +131,7 @@ object frmMain: TfrmMain
         Top = 2
         Width = 460
         Height = 746
-        ActivePage = TabSheet1
+        ActivePage = TabSheet2
         Align = alClient
         Font.Charset = ANSI_CHARSET
         Font.Color = clWindowText
@@ -326,9 +326,9 @@ object frmMain: TfrmMain
                   object cbCV1_Complete: TCheckBox
                     Left = 3
                     Top = 56
-                    Width = 78
+                    Width = 100
                     Height = 17
-                    Caption = #51089#50629#50756#47308
+                    Caption = #51089#50629#50756#47308' '#51216#46321
                     TabOrder = 6
                   end
                 end
@@ -680,9 +680,9 @@ object frmMain: TfrmMain
                   object cbCV2_Complete: TCheckBox
                     Left = 3
                     Top = 56
-                    Width = 78
+                    Width = 100
                     Height = 17
-                    Caption = #51089#50629#50756#47308
+                    Caption = #51089#50629#50756#47308' '#51216#46321
                     TabOrder = 6
                   end
                 end
@@ -1015,7 +1015,7 @@ object frmMain: TfrmMain
                   Top = 68
                   Width = 76
                   Height = 17
-                  Caption = ' '#54856#50948#52824
+                  Caption = ' '#50689#51216#54869#51064
                   TabOrder = 3
                 end
                 object cbSC_4: TCheckBox
@@ -1039,7 +1039,7 @@ object frmMain: TfrmMain
                   Top = 125
                   Width = 76
                   Height = 17
-                  Caption = ' -'
+                  Caption = ' '#54252#53356#49468#53552
                   TabOrder = 6
                 end
                 object cbSC_7: TCheckBox
@@ -1047,7 +1047,7 @@ object frmMain: TfrmMain
                   Top = 144
                   Width = 76
                   Height = 17
-                  Caption = #44277#52636#44256
+                  Caption = ' '#44277#52636#44256
                   TabOrder = 7
                 end
                 object cbSC_8: TCheckBox
@@ -1055,7 +1055,7 @@ object frmMain: TfrmMain
                   Top = 163
                   Width = 76
                   Height = 17
-                  Caption = #51060#51473#51077#44256
+                  Caption = ' '#51060#51473#51077#44256
                   TabOrder = 8
                 end
                 object cbSC_9: TCheckBox
@@ -1174,6 +1174,13 @@ object frmMain: TfrmMain
                   Height = 13
                   Caption = 'Step.'
                 end
+                object Label13: TLabel
+                  Left = 99
+                  Top = 127
+                  Width = 52
+                  Height = 13
+                  Caption = #51089#50629#48264#54840
+                end
                 object Panel12: TPanel
                   Left = 2
                   Top = 2
@@ -1282,6 +1289,13 @@ object frmMain: TfrmMain
                   Width = 212
                   Height = 21
                   TabOrder = 13
+                end
+                object edtJobNo: TEdit
+                  Left = 96
+                  Top = 142
+                  Width = 116
+                  Height = 21
+                  TabOrder = 14
                 end
               end
             end

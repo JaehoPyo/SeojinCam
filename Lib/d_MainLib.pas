@@ -84,6 +84,7 @@ type
     function  Uf_GetRack(Loc, Field: String): String;
     procedure Uf_SetRack(Loc, Field, Value: String);
     procedure Uf_SetRackStock(Loc, Field, Value: String);
+    procedure Uf_SetIntStatus(Device: Integer);
 
 
     procedure Uf_SCDataMove(Device: Integer; IO: String);
@@ -1046,11 +1047,11 @@ begin
         gSCCW.SC[1].None2[6] := '0';
 
         iBay   := FieldByName('DST_BAY').AsInteger;
-        // hBay   := IntToHex(iBay, 2); // 35 -> 23  // Dec일경우에는 FormatFloat('00', iBay);
+        hBay   := IntToHex(iBay, 2); // 35 -> 23  // Dec일경우에는 FormatFloat('00', iBay);
         iLevel := FieldByName('DST_LEVEL').AsInteger;
-        // hLevel := IntToHex(iLevel, 2);            // Dec일경우에는 FormatFloat('00', iLevel);
-        hBay := FormatFloat('00', iBay);
-        hLevel := FormatFloat('00', iLevel);
+        hLevel := IntToHex(iLevel, 2);            // Dec일경우에는 FormatFloat('00', iLevel);
+//        hBay := FormatFloat('00', iBay);
+//        hLevel := FormatFloat('00', iLevel);
         StrMove(@gSCCW.SC[1].Bay,   PChar(hBay), 2);
         StrMove(@gSCCW.SC[1].Level, PChar(hLevel), 2);
 
@@ -1106,8 +1107,8 @@ begin
 
         iBay   := FieldByName('SRC_BAY').AsInteger;
         iLevel := FieldByName('SRC_LEVEL').AsInteger;
-        hBay   := FormatFloat('00', iBay);
-        hLevel := FormatFloat('00', iLevel);
+        hBay   := IntToHex(iBay, 2);   //FormatFloat('00', iBay);
+        hLevel := IntToHex(iLevel, 2);   //FormatFloat('00', iLevel);
         StrMove(@gSCCW.SC[1].Bay,   PChar(hBay), 2);
         StrMove(@gSCCW.SC[1].Level, PChar(hLevel), 2);
       end;
@@ -1869,6 +1870,45 @@ begin
 
   end;
 end;
+
+//==============================================================================
+// Uf_SetIntStatus : Device : PLC_NO
+//==============================================================================
+procedure Uf_SetIntStatus(Device: Integer);
+var
+  FileName : String;
+  Msg : String;
+  StrSQL : String;
+begin
+  try
+    with Dm_MainLib.qryRackSet do
+    begin
+      Close;
+      StrSQL := ' UPDATE TC_INT_STATUS ' +
+                '    SET INT_DATE = GETDATE() ' +
+                '  WHERE INT_NAME = ''MFC'' '+
+                '    AND INT_M_NO = ''' + IntToStr(Device) + ''' ';
+
+      SQL.Text := StrSQL;
+      ExecSQL;
+    end;
+
+  except
+    on E:Exception do
+    begin
+    // 에러이력 DB에 기록
+    //InsertPGMHist(MENU_ID, HIST_TYPE, FUNC_NAME, EVENT_NAME, EVENT_DESC, COMMAND_TYPE, COMMAND_TEXT, PARAM, ERROR_MSG: String);
+      InsertPGMHist('RCP', 'E', 'Uf_SetIntStatus', '', 'Exception Error', 'SQL', StrSQL, '', E.Message);
+
+      FileName := 'Log\DB_Error_' + FormatDatetime('YYYYMMDD', now) + '.log';
+      Msg := FormatDateTime('YYYY-MM-DD HH:mm:ss ', Now()) + '>>';
+      Msg := Msg + 'Uf_SetIntStatus' + '['+ E.Message + ']';
+      LogWrite(FileName, Msg);
+    end;
+
+  end;
+end;
+
 
 //==============================================================================
 // Uf_TC_SCCW_Update

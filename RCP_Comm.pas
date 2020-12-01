@@ -181,6 +181,8 @@ type
     tmrEPLTOut: TTimer;
     cbCV1_Complete: TCheckBox;
     cbCV2_Complete: TCheckBox;
+    edtJobNo: TEdit;
+    Label13: TLabel;
 
     procedure AppException(Sender: TObject; E: Exception);
     procedure btnCommClick(Sender: TObject);
@@ -292,16 +294,16 @@ begin
       // 전면 plc 접속
       if ( not FrontPLCSocket.Active) and (gDBConnected) then
       begin
-        FrontPLCSocket.Address := INIRead(INI_PATH, 'PLC1', 'IP'  , ''); //Uf_GetComset('컨베이어1', 'ID_IP');
-        FrontPLCSocket.Port    := StrToInt(INIRead(INI_PATH, 'PLC1', 'PORT', '')); //StrToInt(Uf_GetComset('컨베이어1', 'ID_PORT'));
+        FrontPLCSocket.Address := Uf_GetComset('컨베이어1', 'ID_IP');             //INIRead(INI_PATH, 'PLC1', 'IP'  , '');
+        FrontPLCSocket.Port    := StrToInt(Uf_GetComset('컨베이어1', 'ID_PORT')); //StrToInt(INIRead(INI_PATH, 'PLC1', 'PORT', ''));
         FrontPLCSocket.Open();
       end;
 
 //      // 후면 plc 접속
 //      if (not RearPLCSocket.Active) then
 //      begin
-//        RearPLCSocket.Address := INIRead(INI_PATH, 'PLC2', 'IP'  , ''); //Uf_GetComset('컨베이어2', 'ID_IP');
-//        RearPLCSocket.Port    := StrToInt(INIRead(INI_PATH, 'PLC2', 'PORT', '')); //StrToInt(Uf_GetComset('컨베이어2', 'ID_PORT'));
+//        RearPLCSocket.Address := Uf_GetComset('컨베이어2', 'ID_IP');              //INIRead(INI_PATH, 'PLC2', 'IP'  , '');
+//        RearPLCSocket.Port    := StrToInt(Uf_GetComset('컨베이어2', 'ID_PORT'));  //StrToInt(INIRead(INI_PATH, 'PLC2', 'PORT', ''));
 //        RearPLCSocket.Open();
 //      end;
 
@@ -363,8 +365,8 @@ var
 begin
 
   // 자동모드가 아니면 Exit
-  if (gCVCR[Device].Hogi[1].AutoMode = '0') or
-     (rgCV.ItemIndex = 1) then
+  //if (gCVCR[Device].Hogi[1].AutoMode = '0') or
+  if (rgCV.ItemIndex = 1) then
   begin
     Exit;
   end;
@@ -466,7 +468,10 @@ begin
                 ' AND STATUS = ''CV대기'' ' +
                 ' AND ORD_TYPE = ''파레트입고'' ';
     Job_No := Uf_GetOrderJobNo(Device, WhereStr);
-    if(Job_No <> -1) then
+
+    // 작업이 있고 트랙데이터 없을 경우에만 트랙데이터 생성하고 작업완료 표시등 끔
+    if((Job_No <> -1) and
+       (Uf_TrackDataCheck(Device, 4) = false))then
     begin
       // 트랙데이터 생성 & 지시 상태 변경 : CV대기 -> CV이동
       Uf_TrackIPGOSet(Job_No, Device, 4);
@@ -608,9 +613,9 @@ var
 begin
 
   // 자동모드가 아닐경우 Exit
-  if (gSCCR.SC[1].Auto_Mode = '0') or
-     (gSCCR.SC[1].Manual_Mode = '1') or
-     (rgSC.ItemIndex = 1) then
+  //if (gSCCR.SC[1].Auto_Mode = '0') or
+  //   (gSCCR.SC[1].Manual_Mode = '1') or
+  if (rgSC.ItemIndex = 1) then
   begin
     Exit;
   end;
@@ -778,7 +783,7 @@ begin
         Uf_SetCurrent('SCEMPTYOUT', 'OPTION1', '1');
       end;
 
-      Rack_Loc := Uf_GetOrder(IntToStr(Job_No), 'ORD LOC');
+      Rack_Loc := Uf_GetOrder(IntToStr(Job_No), 'ORD_LOC');
       if (Uf_GetRack(Rack_Loc, 'RACK_STAT') <> '공출고') then
       begin
         Uf_SetRack(Rack_Loc, 'RACK_STAT', '공출고');
@@ -926,6 +931,8 @@ begin
 
       edtStep.Text := 'ORDER';
 
+      CommLogWrite(Device, 'PLC#' + IntToStr(Device) + '_' + '작업번호[' + IntToStr(Job_No) + '] SC_작업지시_' + ' Send[' + gSCCW.All + ']');
+
     end
   end;
 
@@ -941,8 +948,8 @@ var
 begin
 
   // 자동모드가 아니면 Exit
-  if (gCVCR[Device].Hogi[1].AutoMode = '0') or
-     (rgCV.ItemIndex = 1) then
+  //if (gCVCR[Device].Hogi[1].AutoMode = '0') or
+  if (rgCV.ItemIndex = 1) then
   begin
     Exit;
   end;
@@ -1061,6 +1068,8 @@ var
 begin
   // EX) ACK 00 RSB 03 68000F0F0009 ETX
 
+  Uf_SetIntStatus(Device);
+
   // 연속 읽기에 대한 응답
   if (Copy(gWholePacket[Device], 2, 5) = '00RSB') then
   begin
@@ -1136,14 +1145,6 @@ begin
 
         // Word 데이터 2Word 사용
         wordCnt := 2;
-//        for i := 1 to wordCnt do
-//        begin
-//          //convStr := Copy(tmpStr, (i * 4) + 1, 4);
-//          // Reverse
-//          convStr := Copy(tmpStr, (i * 6) + 3, 2);
-//          convStr := Copy(tmpStr, (i * 4) + 1, 2);
-//          dataStr := dataStr + convStr;
-//        end;
         convStr := Copy(tmpStr, 7, 2);
         convStr := convStr + Copy(tmpStr, 5, 2);
         convStr := convStr + Copy(tmpStr, 11, 2);
@@ -1157,7 +1158,10 @@ begin
         FillChar(gSCCR, SizeOf(gSCCR), chr($00));
         StrMove(@gSCCR.All, PAnsiChar(dataStr), Length(dataStr));  // StrMove참고:StrMove(@gSCCR.All[1], PChar(@gWholePacket1[9]), dataCount*2);
         CommLogWrite(Device, 'PLC#' + IntToStr(Device) + '_' + 'SC_' + 'Recv Convert[' + gSCCR.All + ']');
-
+        if (gSCCR.SC[1].Rack_In_Finish = '1') then
+        begin
+          CommLogWrite(Device, 'PLC#' + IntToStr(Device) + '_' + 'SC_************RACK_IN_FINISH*********' + 'Recv Convert[' + gSCCR.All + ']');
+        end;
         // 상태표시
         ShowPLCStatus(Device, 'SC');
 
@@ -1228,7 +1232,7 @@ begin
      (DeleteOption in [0..2])then
   begin
     DeleteRecodingFile(DeleteDir, DeleteOption);
-    InsertPGMHist('[Main]', 'N', 'LogFileDelete', '', 'Automatically Delete Log ['+IntToStr(DeleteOption)+']', 'PGM', '', '', '');
+    InsertPGMHist('RCP', 'N', 'LogFileDelete', '', 'Automatically Delete Log ['+IntToStr(DeleteOption)+']', 'PGM', '', '', '');
   end;
 end;
 
@@ -1509,8 +1513,8 @@ var
 begin
 
   // 자동모드가 아니면 Exit
-  if (gSCCR.SC[1].Auto_Mode = '0') or
-     (rgSC.ItemIndex = 1) then
+  // if (gSCCR.SC[1].Auto_Mode = '0') or
+  if (rgSC.ItemIndex = 1) then
   begin
     Exit;
   end;
@@ -1521,6 +1525,7 @@ begin
   // 뒷쪽 Hex 붙이기
   dataStr := dataStr + Copy(gSCCW.SC[1].Bay, 1, 2);
   dataStr := dataStr + Copy(gSCCW.SC[1].Level, 1, 2);
+  CommLogWrite(1, 'PLC#' + IntToStr(1) + '_' + 'SC_*****ErrorCheck*****' + ' Send[' + dataStr + ']');
 
   // DB에 쓰기
   Uf_TableWirte_SCCW(1, dataStr);
@@ -1550,9 +1555,8 @@ var
 begin
 
   //** 스태커 입고대 포킹완료 **// (입고대에서 뜸, CV->SC)
-  if (gSCCR.SC[1].Job_Standby       = '0') and
-     (gSCCR.SC[1].Storage_In_Ing    = '1') and
-     (gSCCR.SC[1].Storage_Out_Ing   = '0') and
+  if //(gSCCR.SC[1].Job_Standby       = '0') and
+     (gInOutFlag = '입고') and
      (gSCCR.SC[1].In_St_Fork_Finish = '1') and
      (gSCCR.SC[1].Pallet_Exist      = '1') then
   begin
@@ -1560,17 +1564,21 @@ begin
     // 입고대(CV7)에서 SC로 데이터 이동
     Device := Uf_GetOrderPLCNo('입고', 'SC적재');
     Job_No := Uf_GetOrderJobNo(Device, '입고', 'SC적재');
+    if (Job_No <= 0) then Exit;
+
+    edtJobNo.Text := IntToStr(Job_No);
+
     Uf_SCDataMove(Device, '입고');
 
     // 지시상태 변경 'SC적재'->'SC하역'
     Uf_SetOrder(IntToStr(Job_No), 'STATUS'  , 'SC하역');
     Uf_SetOrder(IntToStr(Job_No), 'NOW_MACH', 'SC');
     Uf_SetOrder(IntToStr(Job_No), 'NOW_SITE', '100');
+    CommLogWrite(Device, 'PLC#' + IntToStr(Device) + '_' + '작업번호[' + IntToStr(Job_No) + '] SC_입고대포킹완료_' + ' Send[' + gSCCW.All + ']');
   end
   //** 스태커 입고작업 완료 **// (랙에 넣음, 재고처리는 트리거로 할 예정)
-  else if (gSCCR.SC[1].Job_Standby     = '0') and
-          (gSCCR.SC[1].Storage_In_Ing  = '0') and
-          (gSCCR.SC[1].Storage_Out_Ing = '0') and
+  else if //(gSCCR.SC[1].Job_Standby     = '0') and
+          (gInOutFlag = '입고') and
           (gSCCR.SC[1].Rack_In_Finish  = '1') and
           (gSCCR.SC[1].Pallet_Exist    = '0') then
   begin
@@ -1579,6 +1587,9 @@ begin
     // 작업 가져옴
     Device := Uf_GetOrderPLCNo('입고', 'SC하역');
     Job_No := Uf_GetOrderJobNo(Device, '입고', 'SC하역');
+    if (Job_No <= 0) then Exit;
+
+    edtJobNo.Text := IntToStr(Job_No);
 
     // 지시상태 변경 'SC하역'->'SC완료'
     Uf_SetOrder(IntToStr(Job_No), 'STATUS' , 'SC완료');
@@ -1593,11 +1604,11 @@ begin
 
     // 지시 초기화
     Fillchar(gSCCW, sizeof(gSCCW), '0');
+    CommLogWrite(Device, 'PLC#' + IntToStr(Device) + '_' + '작업번호[' + IntToStr(Job_No) + '] SC_랙입고완료_초기화_' + ' Send[' + gSCCW.All + ']');
   end
   //** 스태커 출고랙 포킹완료 **// (랙에서 꺼냄)
-  else if (gSCCR.SC[1].Job_Standby     = '0') and
-          (gSCCR.SC[1].Storage_In_Ing  = '0') and
-          (gSCCR.SC[1].Storage_Out_Ing = '1') and
+  else if //(gSCCR.SC[1].Job_Standby     = '0') and
+          (gInOutFlag = '출고') and
           (gSCCR.SC[1].Rack_Out_Finish = '1') and
           (gSCCR.SC[1].Pallet_Exist    = '1') then
   begin
@@ -1605,17 +1616,20 @@ begin
     // 작업 가져옴
     Device := Uf_GetOrderPLCNo('출고', 'SC적재');
     Job_No := Uf_GetOrderJobNo(Device, '출고', 'SC적재');
+    if (Job_No <= 0) then Exit;
+    edtJobNo.Text := IntToStr(Job_No);
 
     // SC 트랙 데이터 업데이트
     Uf_TrackDataSet(IntToStr(Job_No), 1, 1, 100);
     Uf_SetOrder(IntToStr(Job_No), 'STATUS'  , 'SC하역');
     Uf_SetOrder(IntToStr(Job_No), 'NOW_MACH', 'SC');
     Uf_SetOrder(IntToStr(Job_No), 'NOW_SITE', '100');
+    CommLogWrite(Device, 'PLC#' + IntToStr(Device) + '_' + '작업번호[' + IntToStr(Job_No) + '] SC_랙포킹완료_' + ' Send[' + gSCCW.All + ']');
+
   end
   //** 스태커 출고작업 완료 **// (출고대에 내려놓음 SC->CV)
-  else if (gSCCR.SC[1].Job_Standby        = '0') and
-          (gSCCR.SC[1].Storage_In_Ing     = '0') and
-          (gSCCR.SC[1].Storage_Out_Ing    = '0') and
+  else if //(gSCCR.SC[1].Job_Standby        = '0') and
+          (gInOutFlag = '출고') and
           (gSCCR.SC[1].Out_St_Fork_Finish = '1') and
           (gSCCR.SC[1].Pallet_Exist       = '0') then
   begin
@@ -1623,6 +1637,8 @@ begin
     // 작업 가져옴
     Device := Uf_GetOrderPLCNo(gInOutFlag, 'SC하역');
     Job_No := Uf_GetOrderJobNo(Device, gInOutFlag, 'SC하역');
+    if (Job_No <= 0) then Exit;
+    edtJobNo.Text := IntToStr(Job_No);
 
     // 지시상태 변경 'SC지시'->'SC완료'
     Uf_SetOrder(IntToStr(Job_No), 'STATUS'  , 'SC완료');
@@ -1635,6 +1651,8 @@ begin
 
     // 지시 초기화
     Fillchar(gSCCW, sizeof(gSCCW), '0');
+    CommLogWrite(Device, 'PLC#' + IntToStr(Device) + '_' + '작업번호[' + IntToStr(Job_No) + '] SC_랙출고대포킹완료_초기화_' + ' Send[' + gSCCW.All + ']');
+
   end;
 end;
 
@@ -1904,7 +1922,7 @@ begin
     begin
 //      if (not RearPLCSocket.Active) then
 //      begin
-//        CommLogWrite(2, 'FrontPLCSocket is not activated');
+//        CommLogWrite(2, 'RearPLCSocket is not activated');
 //      end
 //      else
 //      begin
@@ -1947,7 +1965,7 @@ begin
 
 //  if (not RearPLCSocket.Active) then
 //  begin
-//    btnComm.Caption := '통신시작';
+//   // btnComm.Caption := '통신시작';
 //    ShpMFCInterfaceConn2.Brush.Color := CONN_STATUS_COLOR[0];
 //    RearPLCSocket.Open;
 //  end;
@@ -1982,8 +2000,8 @@ var
   WhereStr : string;
 begin
   // 자동모드가 아닌 경우 Exit
-  if (gCVCR[Device].Hogi[1].AutoMode = '0') or
-     (rgCV.ItemIndex = 1) then
+  //if (gCVCR[Device].Hogi[1].AutoMode = '0') or
+  if (rgCV.ItemIndex = 1) then
   begin
     Exit;
   end;
@@ -1993,7 +2011,7 @@ begin
               ' AND ORD_IO = ''출고'' ';
   Job_No := Uf_GetOrderJobNo(Device, WhereStr);
   if (gCVCR[Device].Hogi[1].Exist[4] = '1') and
-     (Uf_TrackDataCheck(Device, 1) = True) and
+     (Uf_TrackDataCheck(Device, 4) = True) and
      (Job_No <> -1)then
   begin
     gCVCW[Device].Hogi[1].CompleteBell := '1';
@@ -2002,7 +2020,8 @@ begin
   begin
     WhereStr := ' AND STATUS = ''CV대기'' ' +
                 ' AND ORD_IO = ''입고'' ' +
-                ' AND ORD_TYPE = ''파레트입고'' ';
+                ' AND ORD_TYPE = ''파레트입고'' ' +
+                ' AND ORD_SEQ_SEL = ''1'' ';
     Job_No := Uf_GetOrderJobNo(Device, WhereStr);
     if (Job_No <> -1) and
        (gCVCR[Device].Hogi[1].Exist[4] = '1') then
