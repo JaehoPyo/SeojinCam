@@ -95,7 +95,7 @@ type
     function  InsertEPLT_ORDER(I_WMS_NO, I_ITEM_CODE, I_PLC_NO, I_QTY: String): String;
 
     procedure ErrorWrite(ErrorCode, ErrorMach, JOB_NO, ORD_LOC: String);
-    procedure ErrorClear(ErrorCode: String);
+    procedure ErrorClear(Mach, ErrorCode: String);
 
 var
   Dm_MainLib: TDm_MainLib;
@@ -245,7 +245,7 @@ begin
       begin
         Result := True;
       end;
-
+      Close;
     end;
   except
     on E : Exception do
@@ -285,6 +285,7 @@ begin
                 '    AND BUFF_NO = ' + IntToStr(Buff_No);
       SQL.Text := StrSQL;
       ExecSQL;
+      Close;
     end;
   except
     on E : Exception do
@@ -429,10 +430,12 @@ begin
       begin
         Result := True;
         Uf_SetOrder(IntToStr(Job_No), 'STATUS', 'CV이동');
+        Close;
       end
       else
       begin
         Result := False;
+        Close;
       end
     end;
 
@@ -611,6 +614,7 @@ begin
           Result := True;
         end;
       end;
+      Close;
     end;
 
   except on E: Exception do
@@ -666,7 +670,7 @@ begin
           Result := True;
         end;
       end;
-
+      Close;
     end;
   except
     on E:Exception do
@@ -746,6 +750,7 @@ begin
           Result := True;
         end;
       end;
+      Close;
     end;
 
   except on E: Exception do
@@ -825,6 +830,7 @@ begin
           Result := True;
         end;
       end;
+      Close;
     end;
 
   except on E: Exception do
@@ -965,6 +971,7 @@ begin
         SQL.Text := StrSQL;
         ExecSQL;
       end;
+      Close;
     end;
   except
     on E:Exception do
@@ -1050,8 +1057,6 @@ begin
         hBay   := IntToHex(iBay, 2); // 35 -> 23  // Dec일경우에는 FormatFloat('00', iBay);
         iLevel := FieldByName('DST_LEVEL').AsInteger;
         hLevel := IntToHex(iLevel, 2);            // Dec일경우에는 FormatFloat('00', iLevel);
-//        hBay := FormatFloat('00', iBay);
-//        hLevel := FormatFloat('00', iLevel);
         StrMove(@gSCCW.SC[1].Bay,   PChar(hBay), 2);
         StrMove(@gSCCW.SC[1].Level, PChar(hLevel), 2);
 
@@ -1107,13 +1112,12 @@ begin
 
         iBay   := FieldByName('SRC_BAY').AsInteger;
         iLevel := FieldByName('SRC_LEVEL').AsInteger;
-        hBay   := IntToHex(iBay, 2);   //FormatFloat('00', iBay);
-        hLevel := IntToHex(iLevel, 2);   //FormatFloat('00', iLevel);
+        hBay   := IntToHex(iBay, 2);
+        hLevel := IntToHex(iLevel, 2);
         StrMove(@gSCCW.SC[1].Bay,   PChar(hBay), 2);
         StrMove(@gSCCW.SC[1].Level, PChar(hLevel), 2);
       end;
-
-
+      Close;
     end;
   except
     on E: Exception do
@@ -1154,6 +1158,7 @@ begin
       Open;
       if (isEmpty) then Result := ''
       else Result := FieldByName(Field).AsString;
+      Close;
     end;
 
   except
@@ -1193,6 +1198,7 @@ begin
                 '  WHERE CURRENT_NAME = ' + QuotedStr(Key);
       SQL.Text := StrSQL;
       ExecSQL;
+      Close;
     end;
 
   except
@@ -1247,7 +1253,7 @@ begin
       StrMove(@gSCCW.SC[1].Bay, PChar(hTemp), 2);
       hTemp := Copy(Temp, 7, 2);
       StrMove(@gSCCW.SC[1].Level, PChar(hTemp), 2);
-
+      Close;
     end;
 
   except
@@ -1287,6 +1293,7 @@ begin
 
       if (isEmpty) then Result := ''
       else Result := FieldByName(Field).AsString;
+      Close;
     end;
 
   except
@@ -1345,7 +1352,7 @@ begin
       // 지시가 있으면 지시의 PLC_NO 리턴, 없으면 -1
       if (isEmpty) then Result := -1
       else Result := FieldByName('PLC_NO').AsInteger;
-
+      Close;
     end;
   except
     on E:Exception do
@@ -1386,7 +1393,7 @@ begin
       // 없으면 빈칸 리턴
       if (isEmpty) then Result := -1
       else Result := FieldByName('CNT').AsInteger;
-
+      Close;
     end;
   except
     on E:Exception do
@@ -1430,7 +1437,7 @@ begin
       // 없으면 빈칸 리턴
       if (isEmpty) then Result := ''
       else Result := FieldByName('ERR_NAME').AsString;
-
+      Close;
     end;
   except
     on E:Exception do
@@ -1491,7 +1498,7 @@ begin
       // 지시가 있으면 지시의 JOB_NO 리턴, 없으면 -1
       if (isEmpty) then Result := -1
       else Result := FieldByName('JOB_NO').AsInteger;
-
+      Close;
     end;
   except
     on E:Exception do
@@ -1533,6 +1540,7 @@ begin
 
       if (isEmpty) then Result := -1
       else Result := FieldByName('JOB_NO').AsInteger;
+      Close;
     end;
 
   except
@@ -1573,6 +1581,7 @@ begin
 
       if (isEmpty) then Result := ''
       else Result := FieldByName(Field).AsString;
+      Close;
     end;
 
   except
@@ -1621,6 +1630,7 @@ begin
 
       SQL.Text := StrSQL;
       ExecSQL;
+      Close;
     end;
 
   except
@@ -1656,6 +1666,7 @@ begin
                 '  WHERE JOB_NO = ' + QuotedStr(Job_No);
       SQL.Text := StrSQL;
       ExecSQL;
+      Close;
     end;
 
   except
@@ -1704,7 +1715,7 @@ begin
       begin
         InsertPGMHist('RCP', 'N', 'InsertEPLT_ORDER', '', '', 'SP', 'PD_INS_EPLT_ORDER', Param, '');
       end;
-
+      Close;
     end;
   except
     on E:Exception do
@@ -1777,6 +1788,7 @@ begin
 
       if (isEmpty) then Result := ''
       else Result := FieldByName(Field).AsString;
+      Close;
     end;
 
   except
@@ -1814,6 +1826,7 @@ begin
 
       SQL.Text := StrSQL;
       ExecSQL;
+      Close;
     end;
 
   except
@@ -1853,6 +1866,7 @@ begin
 
       SQL.Text := StrSQL;
       ExecSQL;
+      Close;
     end;
 
   except
@@ -1891,6 +1905,7 @@ begin
 
       SQL.Text := StrSQL;
       ExecSQL;
+      Close;
     end;
 
   except
@@ -1926,10 +1941,11 @@ begin
               'Where IDX=1';
       Close;
       SQL.Text := strSQL ;
-      if ExecSQL>0 then
+      if (ExecSQL > 0) then
       begin
         Result:=True;
       end;
+      Close;
     Except
       on E: Exception do
       BEGIN
@@ -2032,7 +2048,7 @@ begin
       begin
         InsertPGMHist('RCP', 'N', 'InsertEPLT_ORDER', '', '', 'SP', 'PD_INS_EPLT_ORDER', Param, '');
       end;
-
+      Close;
     end;
   except
     on E:Exception do
@@ -2112,7 +2128,7 @@ begin
       StrSQL := ' SELECT ERR_CODE ' +
                 '   FROM TM_ERROR WITH (NOLOCK) ' +
                 '  WHERE WMS_NO  = ''D'' ' +
-                '    AND MACH_ID = ''SC'' ' +
+                '    AND MACH_ID = ''' + ErrorMach + ''' ' +
                 '    AND ERR_CODE  = ''' + ErrorCode + ''' ';
       SQL.Text := StrSQL;
       Open;
@@ -2159,7 +2175,7 @@ end;
 //==============================================================================
 // ErrorClear [에러해제]                                                      //
 //==============================================================================
-procedure ErrorClear(ErrorCode: String);
+procedure ErrorClear(Mach, ErrorCode: String);
 var
   FileName : String;
   Msg : String;
@@ -2173,12 +2189,12 @@ begin
       StrSQL := ' UPDATE TT_ERROR ' +
                 '    SET ERR_END = GETDATE() ' +
                 '      , UP_DT   = CONVERT(VARCHAR(MAX), GETDATE(), 21) ' +
-                '  WHERE MACH_ID   = ''SC'' ' +
+                '  WHERE MACH_ID   = ''' + Mach + ''' ' +
                 '    AND ERR_CODE  = ''' + ErrorCode   + ''' ' +
                 '    AND ERR_START = ' +
                 '       ( SELECT TOP 1 ERR_START ' +
                 '           FROM TT_ERROR WITH (NOLOCK) ' +
-                '          WHERE MACH_ID   = ''SC'' ' +
+                '          WHERE MACH_ID   = ''' + Mach + ''' ' +
                 '            AND ERR_CODE  = ''' + ErrorCode   + ''' ' +
                 '          ORDER BY ERR_START DESC) ' ;
       SQL.Text := StrSQL ;

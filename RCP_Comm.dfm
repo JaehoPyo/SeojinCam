@@ -56,6 +56,8 @@ object frmMain: TfrmMain
           #51088#46041
           #49688#46041)
         TabOrder = 1
+        ExplicitLeft = 87
+        ExplicitTop = 4
       end
       object Panel18: TPanel
         Left = 2
@@ -65,6 +67,7 @@ object frmMain: TfrmMain
         Align = alLeft
         BevelOuter = bvNone
         TabOrder = 2
+        Visible = False
         object Label4: TLabel
           Left = 27
           Top = 21
@@ -178,6 +181,7 @@ object frmMain: TfrmMain
                 Align = alClient
                 Lines.Strings = (
                   'mmErrorLog')
+                ScrollBars = ssHorizontal
                 TabOrder = 0
               end
             end
@@ -201,8 +205,8 @@ object frmMain: TfrmMain
               Lines.Strings = (
                 'mmCommLog'
                 '')
+              ScrollBars = ssHorizontal
               TabOrder = 2
-              ExplicitHeight = 583
             end
           end
           object Panel5: TPanel
@@ -323,13 +327,21 @@ object frmMain: TfrmMain
                     Caption = '6 '#8594' 7'
                     TabOrder = 5
                   end
-                  object cbCV1_Complete: TCheckBox
+                  object cbCV1_Complete1: TCheckBox
                     Left = 3
                     Top = 56
                     Width = 100
                     Height = 17
-                    Caption = #51089#50629#50756#47308' '#51216#46321
+                    Caption = #51089#50629#50756#47308' '#51216#47736
                     TabOrder = 6
+                  end
+                  object cbCV1_Complete2: TCheckBox
+                    Left = 115
+                    Top = 56
+                    Width = 100
+                    Height = 17
+                    Caption = #51089#50629#50756#47308' '#51216#46321
+                    TabOrder = 7
                   end
                 end
                 object GroupBox5: TGroupBox
@@ -677,13 +689,21 @@ object frmMain: TfrmMain
                     Caption = '6 '#8594' 7'
                     TabOrder = 5
                   end
-                  object cbCV2_Complete: TCheckBox
+                  object cbCV2_Complete1: TCheckBox
                     Left = 3
                     Top = 56
                     Width = 100
                     Height = 17
-                    Caption = #51089#50629#50756#47308' '#51216#46321
+                    Caption = #51089#50629#50756#47308' '#51216#47736
                     TabOrder = 6
+                  end
+                  object cbCV2_Complete2: TCheckBox
+                    Left = 109
+                    Top = 56
+                    Width = 100
+                    Height = 17
+                    Caption = #51089#50629#50756#47308' '#51216#46321
+                    TabOrder = 7
                   end
                 end
                 object GroupBox6: TGroupBox
