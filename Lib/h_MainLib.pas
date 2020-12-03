@@ -161,7 +161,7 @@ type
       1 : (All : array [1..16] of AnsiChar);
       2 : (
         StriOrder     : Array[1..6] of AnsiChar; // 직진지시
-        TwingcleLamp  : AnsiChar; // 반짝이는 램프
+        TwingkleLamp  : AnsiChar; // 반짝이는 램프
         OnLamp        : AnsiChar; // 항상 켜져있는 램프
         Reserve       : Array[1..8] of AnsiChar; //공란
     )

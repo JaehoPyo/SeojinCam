@@ -1335,7 +1335,7 @@ begin
                   '  FROM TT_ORDER WITH(NOLOCK)' +
                   ' WHERE ORD_IO = ''입고'' ' +
                   '   AND STATUS = ' + QuotedStr(Status) +
-                  ' ORDER BY ORD_SEQ, ORD_DT ';
+                  ' ORDER BY CONVERT(INT, ORD_SEQ), ORD_DT ';
       end
       // 출고지시 탐색
       else if (IO = '출고') then
@@ -1344,7 +1344,7 @@ begin
                   '  FROM TT_ORDER WITH(NOLOCK)' +
                   ' WHERE ORD_IO = ''출고'' ' +
                   '   AND STATUS = ' + QuotedStr(Status) +
-                  ' ORDER BY ORD_EMG DESC, ORD_SEQ, ORD_DT ';
+                  ' ORDER BY ORD_EMG DESC, CONVERT(INT, ORD_SEQ), ORD_DT ';
       end;
       SQL.Text := StrSQL;
       Open;

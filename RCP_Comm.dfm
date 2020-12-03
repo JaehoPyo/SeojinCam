@@ -134,7 +134,7 @@ object frmMain: TfrmMain
         Top = 2
         Width = 460
         Height = 746
-        ActivePage = TabSheet2
+        ActivePage = TabSheet1
         Align = alClient
         Font.Charset = ANSI_CHARSET
         Font.Color = clWindowText
@@ -207,6 +207,8 @@ object frmMain: TfrmMain
                 '')
               ScrollBars = ssHorizontal
               TabOrder = 2
+              ExplicitLeft = -6
+              ExplicitTop = -3
             end
           end
           object Panel5: TPanel
@@ -1298,9 +1300,9 @@ object frmMain: TfrmMain
                 object cbSC_Write_9: TCheckBox
                   Left = 7
                   Top = 182
-                  Width = 76
+                  Width = 120
                   Height = 17
-                  Caption = ' '#49828#53580#51060#49496
+                  Caption = ' '#51204#47732'(1)/'#54980#47732'(0)'
                   TabOrder = 12
                 end
                 object edtStep: TEdit
@@ -1527,7 +1529,6 @@ object frmMain: TfrmMain
   end
   object tmrUPD_ORDSEQSEL: TTimer
     Enabled = False
-    Interval = 2000
     OnTimer = tmrUPD_ORDSEQSELTimer
     Left = 366
     Top = 221

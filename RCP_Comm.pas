@@ -471,7 +471,7 @@ begin
     end;
 
     // 작업완료 점멸 Off / 작업완료 점등 On
-    gCVCW[Device].Hogi[1].TwingcleLamp := '0';
+    gCVCW[Device].Hogi[1].TwingkleLamp := '0';
     gCVCW[Device].Hogi[1].OnLamp       := '1';
 
     // 파레트 입고 작업 있는 경우
@@ -481,7 +481,7 @@ begin
                 ' AND ORD_SEQ_SEL = ''1'' ';
     Job_No := Uf_GetOrderJobNo(Device, WhereStr);
 
-    // 작업이 있고 트랙데이터 없을 경우에만 트랙데이터 생성하고 작업완료 표시등 끔
+    // 파레트입고 작업이 있고 트랙데이터 없을 경우에만 트랙데이터 생성하고 작업완료 표시등 끔
     if((Job_No <> -1) and
        (Uf_TrackDataCheck(Device, 4) = false))then
     begin
@@ -489,10 +489,6 @@ begin
       Uf_TrackIPGOSet(Job_No, Device, 4);
 //    Exit;
     end;
-
-    // 작업완료 점멸 Off / 작업완료 점등 On
-    gCVCW[Device].Hogi[1].TwingcleLamp := '0';
-    gCVCW[Device].Hogi[1].OnLamp       := '1';
 
 
     WhereStr := ' AND ORD_IO = ' + QuotedStr('출고') +
@@ -582,7 +578,6 @@ begin
     begin
       gCVCW[Device].Hogi[1].StriOrder[4] := '1';
     end;
-    CommLogWrite(Device, 'PLC#' + IntToStr(Device) + '_' + '작업번호[' + IntToStr(Job_No) + '] CV이동지시_' + ' Send[' + gCVCW[Device].All + ']');
   end;
 
   // 5->6 직진지시
@@ -987,7 +982,7 @@ begin
   dataStr := StrBinToStrHex(dataStr);
 
   // PLC에 쓰기
-  dataStr := ENQ + '00WSB' + '07' + '%MW2950' + '01' + dataStr + EOT;
+  dataStr := ENQ + '0' + IntToStr(Device - 1) + 'WSB' + '07' + '%MW2950' + '01' + dataStr + EOT;
   PLCWrite(Device, 'CV', dataStr);
 
 end;
@@ -1091,7 +1086,7 @@ begin
   Uf_SetIntStatus(Device);
 
   // 연속 읽기에 대한 응답
-  if (Copy(gWholePacket[Device], 2, 5) = '00RSB') then
+  if (Copy(gWholePacket[Device], 4, 3) = 'RSB') then
   begin
     // 정상응답
     if (Copy(gWholePacket[Device], 1, 1) = ACK) then
@@ -1210,7 +1205,7 @@ begin
     end;
   end
   // 연속 쓰기에 대한 응답
-  else if (Copy(gWholePacket[Device], 2, 5) = '00WSB') then
+  else if (Copy(gWholePacket[Device], 4, 3) = 'WSB') then
   begin
     // 정상응답
     if (Copy(gWholePacket[Device], 1, 1) = ACK) then
@@ -1423,6 +1418,8 @@ begin
   PLC_No := PLC_Socket.Tag;
   FillChar(SockRecvBuff[PLC_No], SizeOf(SockRecvBuff[PLC_NO]), chr($00));
 
+//  if PLC_No = 1 then Exit;
+
   // gChrRecvBuff : 1024 byte [1024 AnsiChar]
   // Socket Read
   SockRecvLength[PLC_No] := Socket.ReceiveBuf(SockRecvBuff[PLC_No], Socket.ReceiveLength);
@@ -1456,11 +1453,11 @@ begin
         gWholePacket[PLC_No][gIdx[PLC_No]] := SockRecvBuff[PLC_No][i];
 
         // 수신 데이터 로그
-        if (Copy(gWholePacket[PLC_No], 2, 5) = '00RSB') then
+        if (Copy(gWholePacket[PLC_No], 4, 3) = 'RSB') then
         begin
           CommLogWrite(PLC_No, 'PLC#' + IntToStr(PLC_No) + '_' + '상태읽기 Recv[' + Copy(gWholePacket[PLC_No], 1, SockRecvLength[PLC_No])  + ']');
         end
-        else if (Copy(gWholePacket[PLC_No], 2, 5) = '00WSB') then
+        else if (Copy(gWholePacket[PLC_No], 4, 3) = 'WSB') then
         begin
           CommLogWrite(PLC_No, 'PLC#' + IntToStr(PLC_No) + '_' + '쓰기 Recv[' + Copy(gWholePacket[PLC_No], 1, SockRecvLength[PLC_No])  + ']');
         end;
@@ -1831,7 +1828,7 @@ begin
     CheckBox.Checked := Boolean(StrToIntDef(gCVCW[Device].Hogi[1].StriOrder[i], 0));
   end;
   CheckBox := (FindComponent('cbCV' + PLC_NO + '_Complete1') as TCheckBox);
-  CheckBox.Checked := Boolean(StrToIntDef(gCVCW[Device].Hogi[1].TwingcleLamp, 0));
+  CheckBox.Checked := Boolean(StrToIntDef(gCVCW[Device].Hogi[1].TwingkleLamp, 0));
 
   CheckBox := (FindComponent('cbCV' + PLC_NO + '_Complete2') as TCheckBox);
   CheckBox.Checked := Boolean(StrToIntDef(gCVCW[Device].Hogi[1].OnLamp, 0));
@@ -1930,7 +1927,7 @@ end;
 //------------------------------------------------------------------------------
 procedure TfrmMain.tmrMainTimer(Sender: TObject);
 var
-  dataStr : string;
+  dataStr : AnsiString;
 begin
   tmrMain.Enabled := False;
   ledSend.State := lsOff;
@@ -1973,7 +1970,7 @@ begin
       begin
         // ENQ + data + EOT
         // 연속읽기 요구 : 국번(00) + RSB + (변수길이) + 변수명 + 읽을워드수
-        dataStr := ENQ + '00'+ 'RSB'+'07'+'%MW2952'+'02' + EOT;
+        dataStr := ENQ + '01'+ 'RSB'+'07'+'%MW2952'+'02' + EOT;
         PLCWrite(2, 'CV', dataStr);
       end;
     end;
@@ -2054,7 +2051,8 @@ begin
     Exit;
   end;
 
-  // 지시의 CV완료시 작업완료 표시
+  //***** 작업완료버튼 램프 관련 *****//
+  // 출고지시가 CV완료로 되면 작업완료 표시 - 버튼 LED점멸
   WhereStr := ' AND STATUS = ''CV완료'' ' +
               ' AND ORD_IO = ''출고'' ';
   Job_No := Uf_GetOrderJobNo(Device, WhereStr);
@@ -2063,9 +2061,10 @@ begin
      (gCVCW[Device].Hogi[1].StriOrder[4] = '0') and
      (Job_No <> -1)then
   begin
-    gCVCW[Device].Hogi[1].TwingcleLamp := '1';
+    gCVCW[Device].Hogi[1].TwingkleLamp := '1';
     gCVCW[Device].Hogi[1].OnLamp       := '0';
   end
+  // CV완료인 출고지시가 없는 경우
   else
   begin
     WhereStr := ' AND STATUS = ''CV대기'' ' +
@@ -2078,19 +2077,19 @@ begin
        (gCVCW[Device].Hogi[1].StriOrder[4] = '0') and
        (Job_No <> -1) then
     begin
-      gCVCW[Device].Hogi[1].TwingcleLamp := '1';
+      gCVCW[Device].Hogi[1].TwingkleLamp := '1';
       gCVCW[Device].Hogi[1].OnLamp       := '0';
     end
     else if (gCVCR[Device].Hogi[1].Exist[4] = '1') and
             (Uf_TrackDataCheck(Device, 4) = True) and
             (gCVCW[Device].Hogi[1].StriOrder[4] = '0') then
     begin
-      gCVCW[Device].Hogi[1].TwingcleLamp := '0';
+      gCVCW[Device].Hogi[1].TwingkleLamp := '0';
       gCVCW[Device].Hogi[1].OnLamp       := '1';
     end
     else
     begin
-      gCVCW[Device].Hogi[1].TwingcleLamp := '0';
+      gCVCW[Device].Hogi[1].TwingkleLamp := '0';
       gCVCW[Device].Hogi[1].OnLamp       := '0';
     end;
   end;
