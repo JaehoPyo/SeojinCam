@@ -255,7 +255,26 @@ object Dm_MainLib: TDm_MainLib
   object PD_RE_INPUT: TADOStoredProc
     Connection = MainDatabase
     ProcedureName = 'PD_RE_INPUT'
-    Parameters = <>
+    Parameters = <
+      item
+        Name = '@RETURN_VALUE'
+        DataType = ftInteger
+        Direction = pdReturnValue
+        Precision = 10
+      end
+      item
+        Name = '@I_JOB_NO'
+        Attributes = [paNullable]
+        DataType = ftString
+        Size = 4
+      end
+      item
+        Name = '@O_VRETCD'
+        Attributes = [paNullable]
+        DataType = ftString
+        Direction = pdInputOutput
+        Size = 20
+      end>
     Left = 200
     Top = 8
   end

@@ -502,8 +502,11 @@ begin
       //**** 완료된 부분출고, 보충출고 지시 있음 -> 재입고 지시 생성 & 출고지시 삭제
       if ((OrdType = '부분출고') or (OrdType = '보충출고')) then
       begin
-        // 재입고 지시 생성
-        Uf_ReIn_OrderCrate(IntToStr(Job_No));
+        // 재입고 지시 생성 - 실패시 False 반환
+        if (Uf_ReIn_OrderCreate(IntToStr(Job_No)) = False) then
+        begin
+          Exit;
+        end;
 
         // 완료된 [부분출고, 보충출고]지시 삭제
         Uf_DeleteOrder(IntToStr(Job_No));
@@ -523,8 +526,11 @@ begin
       //**** 완료된 품목출고지시 있음 -> 팔레트 입고 지시 생성 & 출고지시 삭제
       else if (OrdType = '품목출고') then
       begin
-        // 재입고 지시 생성
-        Uf_ReIn_OrderCrate(IntToStr(Job_No));
+        // 재입고 지시 생성 - 실패시 False 반환
+        if (Uf_ReIn_OrderCreate(IntToStr(Job_No)) = False) then
+        begin
+          Exit;
+        end;
 
         // 완료된 [품목출고] 지시 삭제
         Uf_DeleteOrder(IntToStr(Job_No));
@@ -544,6 +550,13 @@ begin
       //**** 완료된 파레트출고 지시 있음 -> 품목 입고 지시 확인 후 작업 & 출고지시 삭제
       else if (OrdType = '파레트출고') then
       begin
+        // 입고지시 없는 경우 Exit
+        WhereStr := ' AND ORD_IO = ' + QuotedStr('입고') +
+                    ' AND STATUS = ' + QuotedStr('CV대기') +
+                    ' AND ORD_SEQ_SEL = 1' ;
+        // 작업 없으면 -1 반환
+        if (Uf_GetOrderJobNo(Device, WhereStr) <= 0) then Exit;
+
         // 완료된 [파레트출고] 지시 삭제
         Uf_DeleteOrder(IntToStr(Job_No));
 
@@ -551,12 +564,9 @@ begin
         Uf_TrackDataSet('', 0, Device, 4);
 
         // 입고지시의 작업번호 가져옴
-        WhereStr := ' AND ORD_IO = ' + QuotedStr('입고') +
-                    ' AND STATUS = ' + QuotedStr('CV대기') +
-                    ' AND ORD_SEQ_SEL = 1' ;
         Job_No := Uf_GetOrderJobNo(Device, WhereStr);
 
-        if (Job_No = -1) then Exit;
+        if (Job_No <= 0) then Exit;
 
         // 트랙데이터 생성 & 지시 상태 변경 : CV대기 -> CV이동
         Uf_TrackIPGOSet(Job_No, Device, 4);
@@ -717,17 +727,19 @@ begin
     Exit;
   end;
 
+  ErrorCode := StrToIntDef(gSCCR.SC[1].Error_Code[1] + gSCCR.SC[1].Error_Code[2], 0);
   //====== 에러 ======//
-  if (gSCCR.SC[1].Error = '1') then
+  //if (gSCCR.SC[1].Error = '1') then
+  if (ErrorCode <> 0) then
   begin
-    ErrorCode := StrToIntDef(gSCCR.SC[1].Error_Code[1], 0) + StrToIntDef(gSCCR.SC[1].Error_Code[2], 0);
+    //ErrorCode := StrToIntDef(gSCCR.SC[1].Error_Code[1] + gSCCR.SC[1].Error_Code[2], 0);
 
     // 이전 에러코드와 현재 에러코드가 같으면 나감
     if (gOld_SC_Error_Code = ErrorCode) then Exit;
 
     // TT_ORDER 에러상태표시 설정
     WhereStr := ' AND STATUS in (''SC적재'', ''SC하역'') ';
-    Job_No := Uf_GetOrderJobNo(1, WhereStr);
+    Job_No := Uf_GetOrderJobNo(WhereStr);
 
     if (Uf_GetOrder(IntToStr(Job_No), 'ERROR_STAT') = '0') then
     begin
@@ -810,7 +822,7 @@ begin
     Exit;
   end
   // 에러 아님
-  else if (gSCCR.SC[1].Error = '0') then
+  else //if (gSCCR.SC[1].Error = '0') then
   begin
     // 이전에 에러가 있었을 경우, (에러 해제시)
     if (gOld_SC_Error_Code <> 0) then
@@ -960,6 +972,7 @@ procedure TfrmMain.CVCW_Write(Device: Integer);
 var
   dataStr : AnsiString;
   convStr : AnsiString;
+  num : AnsiString;
 begin
 
   // 자동모드가 아니면 Exit
@@ -982,7 +995,8 @@ begin
   dataStr := StrBinToStrHex(dataStr);
 
   // PLC에 쓰기
-  dataStr := ENQ + '0' + IntToStr(Device - 1) + 'WSB' + '07' + '%MW2950' + '01' + dataStr + EOT;
+  num := FormatFloat('00', Device - 1); // 국번
+  dataStr := ENQ + num + 'WSB' + '07' + '%MW2950' + '01' + dataStr + EOT;
   PLCWrite(Device, 'CV', dataStr);
 
 end;
@@ -1849,8 +1863,8 @@ begin
   cbSC_Write_8.Checked := Boolean(StrToIntDef(gSCCW.SC[1].Even_Bay, 0));
   cbSC_Write_9.Checked := Boolean(StrToIntDef(gSCCW.SC[1].Station, 0));
 
-  edtSC_Write_Bay.Text   := gSCCW.SC[1].Bay;
-  edtSC_Write_Level.Text := gSCCW.SC[1].Level;
+  edtSC_Write_Bay.Text   := HexStrToDecStr(gSCCW.SC[1].Bay); //Data16To10(gSCCW.SC[1].Bay[0]) + Data16To10(gSCCW.SC[1].Bay[1]);
+  edtSC_Write_Level.Text := HexStrToDecStr(gSCCW.SC[1].Level); //Data16To10(gSCCW.SC[1].Level[0]) + Data16To10(gSCCW.SC[1].Level[0]);
 
 end;
 
@@ -1910,11 +1924,12 @@ begin
     // 3. 공팔렛트 출고 작업 갯수 확인. 2개 이상이면 X
     WhereStr := ' AND PLC_NO   = ' + QuotedStr(IntToStr(i)) +
                 ' AND ORD_IO   = ' + QuotedStr('출고') +
-                ' AND ORD_TYPE = ' + QuotedStr('파레트출고');
-    if(Uf_GetOrderCount(WhereStr) >= 2) then Continue;
+                ' AND ORD_TYPE = ' + QuotedStr('파레트출고') +
+                ' AND STATUS in (''SC대기'', ''SC적재'', ''SC하역'')';
+    if(Uf_GetOrderCount(WhereStr) >= 1) then Continue;
 
-    // 위 조건들을 통과하면 공팔렛트출고지시를 만듦. (2개 만듦)
-    for j := 1 to 2 do
+    // 위 조건들을 통과하면 공팔렛트출고지시를 만듦.
+    for j := 1 to 1 do
     begin
       InsertEPLT_ORDER('D', 'EPLT', IntToStr(i), '1');
     end;
@@ -2042,7 +2057,7 @@ end;
 procedure TfrmMain.TrackingProcess_CV(Device: Integer);
 var
   Job_No : Integer;
-  WhereStr : string;
+  WhereStr, OrdType : string;
 begin
   // 자동모드가 아닌 경우 Exit
   //if (gCVCR[Device].Hogi[1].AutoMode = '0') or
@@ -2061,10 +2076,38 @@ begin
      (gCVCW[Device].Hogi[1].StriOrder[4] = '0') and
      (Job_No <> -1)then
   begin
-    gCVCW[Device].Hogi[1].TwingkleLamp := '1';
-    gCVCW[Device].Hogi[1].OnLamp       := '0';
+
+    // CV완료인 지시가 있을 때
+    // 입고지시 유무에 따라 점멸등을 켜고 끈다.
+    // 품목출고, 보충출고의 CV완료 : 점멸등ON,
+    OrdType := Uf_GetOrder(IntToStr(Job_No), 'ORD_TYPE');
+    if (OrdType = '품목출고') or (OrdType = '보충출고') then
+    begin
+      gCVCW[Device].Hogi[1].TwingkleLamp := '1';
+      gCVCW[Device].Hogi[1].OnLamp       := '0';
+    end
+    // 파레트 출고의 CV완료 : 입고지시 유무에 따라 점멸등 ON/OFF
+    else if (OrdType = '파레트출고') then
+    begin
+      WhereStr := ' AND ORD_IO = ''입고'' ' +
+                  ' AND STATUS = ''CV대기'' ' +
+                  ' AND ORD_SEQ_SEL = ''1'' ';
+      Job_No := Uf_GetOrderJobNo(Device, WhereStr);
+      // 입고지시가 없는 경우 - 점멸 ON
+      if (Job_No <= 0) then
+      begin
+        gCVCW[Device].Hogi[1].TwingkleLamp := '0';
+        gCVCW[Device].Hogi[1].OnLamp       := '0';
+      end
+      // 입고지시가 있는 경우 - 점멸 OFF
+      else
+      begin
+        gCVCW[Device].Hogi[1].TwingkleLamp := '1';
+        gCVCW[Device].Hogi[1].OnLamp       := '0';
+      end;
+    end;
   end
-  // CV완료인 출고지시가 없는 경우
+  // CV완료인 출고지시가 없는 경우 - 베이스파레트가 CV완료상태가 아닌채로 나와있거나 베이스 파레트만 넣는 경우
   else
   begin
     WhereStr := ' AND STATUS = ''CV대기'' ' +

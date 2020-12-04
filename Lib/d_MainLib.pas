@@ -74,12 +74,13 @@ type
     function  Uf_GetErrorMsg(Mach, Code: String): String;
     function  Uf_GetOrderJobNo(Device: Integer; IO, Status: String ): Integer; overload;
     function  Uf_GetOrderJobNo(Device: Integer; WhereStr: String): Integer; overload;
+    function  Uf_GetOrderJobNo(WhereStr: String): Integer; overload;
     function  Uf_GetOrderPLCNo(IO, Status: String): Integer;
     function  Uf_GetOrderCount(WhereStr: String) : Integer;
     function  Uf_GetOrder(Job_No, Field: String): String;
     procedure Uf_SetOrder(Job_No, Field, Value: String);
     procedure Uf_DeleteOrder(Job_No: String);
-    procedure Uf_ReIn_OrderCrate(Job_No: String);
+    function  Uf_ReIn_OrderCreate(Job_No: String): Boolean;
     procedure Uf_UpdateOrdSeq();
     function  Uf_GetRack(Loc, Field: String): String;
     procedure Uf_SetRack(Loc, Field, Value: String);
@@ -1560,6 +1561,49 @@ begin
 end;
 
 //==============================================================================
+// Uf_GetOrderJobNo : Device: PLC 번호 1,2. WhreStr: 탐색조건: ex)'STATUS = ''CV대기'' '
+//==============================================================================
+function Uf_GetOrderJobNo(WhereStr: String): Integer;
+var
+  FileName : String;
+  Msg : String;
+  StrSQL : String;
+begin
+
+  if (WhereStr = '') then Exit;
+
+  try
+    with Dm_MainLib.qryOrderGet do
+    begin
+      Close;
+      StrSQL := ' SELECT JOB_NO ' +
+                '   FROM TT_ORDER WITH(NOLOCK) ' +
+                '  WHERE 1 = 1' + WhereStr;
+      SQL.Text := StrSQL;
+      Open;
+
+      if (isEmpty) then Result := -1
+      else Result := FieldByName('JOB_NO').AsInteger;
+      Close;
+    end;
+
+  except
+    on E:Exception do
+    begin
+    // 에러이력 DB에 기록
+    //InsertPGMHist(MENU_ID, HIST_TYPE, FUNC_NAME, EVENT_NAME, EVENT_DESC, COMMAND_TYPE, COMMAND_TEXT, PARAM, ERROR_MSG: String);
+      InsertPGMHist('RCP', 'E', 'Uf_GetOrderJobNo', '', 'Exception Error', 'SQL', StrSQL, '', E.Message);
+
+      FileName := 'Log\DB_Error_' + FormatDatetime('YYYYMMDD', now) + '.log';
+      Msg := FormatDateTime('YYYY-MM-DD HH:mm:ss ', Now()) + '>>';
+      Msg := Msg + 'Uf_GetOrderJobNo' + '['+ E.Message + ']';
+      LogWrite(FileName, Msg);
+    end;
+
+  end;
+end;
+
+//==============================================================================
 // Uf_GetOrder
 //==============================================================================
 function  Uf_GetOrder(Job_No, Field: String): String;
@@ -1688,7 +1732,7 @@ end;
 //==============================================================================
 // Uf_ReIn_OrderCrate : Job_No 재입고 지시할 작업번호
 //==============================================================================
-procedure Uf_ReIn_OrderCrate(Job_No: String);
+function Uf_ReIn_OrderCreate(Job_No: String): Boolean;
 var
   FileName : String;
   Msg : String;
@@ -1701,19 +1745,21 @@ begin
     begin
       Close;
       ProcedureName := 'PD_RE_INPUT';
-      Parameters.ParamByName('I_JOB_NO').Value := Job_No;
-      Parameters.ParamByName('O_VRETCD').Direction := pdOutput;
+      Parameters.ParamByName('@I_JOB_NO').Value := Job_No;
+      Parameters.ParamByName('@O_VRETCD').Direction := pdOutput;
       ExecProc;
-      O_VRETCD  := VarToStr(Parameters.ParamByName('O_VRETCD' ).Value);
+      O_VRETCD  := VarToStr(Parameters.ParamByName('@O_VRETCD' ).Value);
       Close;
 
-      if (O_VRETCD <> '0') then
+      if (Copy(O_VRETCD, 1, 2) = 'NG') then
       begin
-        InsertPGMHist('RCP', 'E', 'InsertEPLT_ORDER', '', '', 'SP', 'PD_INS_EPLT_ORDER', Param, O_VRETCD);
+        InsertPGMHist('RCP', 'E', 'Uf_ReIn_OrderCreate', '', '', 'SP', 'PD_RE_INPUT', Param, O_VRETCD);
+        Result := False;
       end
       else
       begin
-        InsertPGMHist('RCP', 'N', 'InsertEPLT_ORDER', '', '', 'SP', 'PD_INS_EPLT_ORDER', Param, '');
+        InsertPGMHist('RCP', 'N', 'Uf_ReIn_OrderCreate', '', '', 'SP', 'PD_RE_INPUT', Param, O_VRETCD);
+        Result := True;
       end;
       Close;
     end;
