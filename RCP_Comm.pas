@@ -2081,7 +2081,7 @@ begin
     // 입고지시 유무에 따라 점멸등을 켜고 끈다.
     // 품목출고, 보충출고의 CV완료 : 점멸등ON,
     OrdType := Uf_GetOrder(IntToStr(Job_No), 'ORD_TYPE');
-    if (OrdType = '품목출고') or (OrdType = '보충출고') then
+    if (OrdType = '품목출고') or (OrdType = '보충출고') or (OrdType = '부분출고') then
     begin
       gCVCW[Device].Hogi[1].TwingkleLamp := '1';
       gCVCW[Device].Hogi[1].OnLamp       := '0';
