@@ -594,7 +594,7 @@ begin
                   ' AND ORD_SEQ_SEL = ''1'' ';
       In_Job_No := Uf_GetOrderJobNo(Device, WhereStr);
 
-      // 파레트입고 작업이 있고 트랙데이터 없을 경우에만 트랙데이터 생성하고 작업완료 표시등 끔
+      // 파레트입고 작업이 있고 트랙데이터 없을 경우에만 트랙데이터 생성
       if((In_Job_No <> -1) and
          (Uf_TrackDataCheck(Device, 4) = false))then
       begin
