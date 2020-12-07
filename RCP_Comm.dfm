@@ -24,7 +24,6 @@ object frmMain: TfrmMain
     Align = alClient
     BevelOuter = bvNone
     TabOrder = 0
-    ExplicitHeight = 771
     object Panel2: TPanel
       Left = 0
       Top = 750
@@ -33,7 +32,6 @@ object frmMain: TfrmMain
       Align = alBottom
       BevelInner = bvLowered
       TabOrder = 0
-      ExplicitTop = 730
       object btnComm: TButton
         Left = 380
         Top = 6
@@ -56,8 +54,6 @@ object frmMain: TfrmMain
           #51088#46041
           #49688#46041)
         TabOrder = 1
-        ExplicitLeft = 87
-        ExplicitTop = 4
       end
       object Panel18: TPanel
         Left = 2
@@ -128,7 +124,6 @@ object frmMain: TfrmMain
       Font.Style = []
       ParentFont = False
       TabOrder = 1
-      ExplicitHeight = 730
       object PageControl: TPageControl
         Left = 2
         Top = 2
@@ -143,7 +138,6 @@ object frmMain: TfrmMain
         Font.Style = []
         ParentFont = False
         TabOrder = 0
-        ExplicitHeight = 726
         object TabSheet1: TTabSheet
           Caption = #53685#49888#49345#53468
           Font.Charset = ANSI_CHARSET
@@ -152,7 +146,6 @@ object frmMain: TfrmMain
           Font.Name = #46027#50880
           Font.Style = []
           ParentFont = False
-          ExplicitHeight = 697
           object Panel7: TPanel
             Left = 0
             Top = 0
@@ -162,7 +155,6 @@ object frmMain: TfrmMain
             BevelOuter = bvNone
             ParentBackground = False
             TabOrder = 0
-            ExplicitHeight = 697
             object Panel6: TPanel
               Left = 0
               Top = 605
@@ -172,7 +164,6 @@ object frmMain: TfrmMain
               BevelInner = bvLowered
               BevelOuter = bvNone
               TabOrder = 0
-              ExplicitTop = 585
               object mmErrorLog: TMemo
                 Left = 1
                 Top = 1
@@ -194,7 +185,6 @@ object frmMain: TfrmMain
               BevelOuter = bvNone
               ParentBackground = False
               TabOrder = 1
-              ExplicitTop = 583
             end
             object mmCommLog: TMemo
               Left = 0
@@ -207,8 +197,6 @@ object frmMain: TfrmMain
                 '')
               ScrollBars = ssHorizontal
               TabOrder = 2
-              ExplicitLeft = -6
-              ExplicitTop = -3
             end
           end
           object Panel5: TPanel
@@ -220,7 +208,6 @@ object frmMain: TfrmMain
             BevelOuter = bvNone
             ParentBackground = False
             TabOrder = 1
-            ExplicitHeight = 697
           end
         end
         object TabSheet2: TTabSheet
@@ -232,6 +219,9 @@ object frmMain: TfrmMain
           Font.Style = []
           ImageIndex = 1
           ParentFont = False
+          ExplicitLeft = 0
+          ExplicitTop = 0
+          ExplicitWidth = 0
           ExplicitHeight = 697
           object Panel4: TPanel
             Left = 0
@@ -1334,7 +1324,6 @@ object frmMain: TfrmMain
     Align = alBottom
     BevelOuter = bvNone
     TabOrder = 1
-    ExplicitTop = 771
     object pnlStatusPanel4: TPanel
       Left = 385
       Top = 0

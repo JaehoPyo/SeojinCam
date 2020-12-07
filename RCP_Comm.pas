@@ -364,11 +364,11 @@ end;
 //------------------------------------------------------------------------------
 procedure TfrmMain.ControlProcess_CV(Device: Integer);
 var
-  Job_No : Integer;
+  Out_Job_No, In_Job_No, Job_No : Integer;
   i : Integer;
   ErrorCode : Array [1..6] of Integer;
   WhereStr : String;
-  OrdType, RackLoc : String;
+  OrdType, RackLoc, OrderPlcNo : String;
 begin
 
   // 자동모드가 아니면 Exit
@@ -474,42 +474,25 @@ begin
     gCVCW[Device].Hogi[1].TwingkleLamp := '0';
     gCVCW[Device].Hogi[1].OnLamp       := '1';
 
-    // 파레트 입고 작업 있는 경우
-    WhereStr := ' AND ORD_IO = ''입고'' ' +
-                ' AND STATUS = ''CV대기'' ' +
-                ' AND ORD_TYPE = ''파레트입고'' ' +
-                ' AND ORD_SEQ_SEL = ''1'' ';
-    Job_No := Uf_GetOrderJobNo(Device, WhereStr);
-
-    // 파레트입고 작업이 있고 트랙데이터 없을 경우에만 트랙데이터 생성하고 작업완료 표시등 끔
-    if((Job_No <> -1) and
-       (Uf_TrackDataCheck(Device, 4) = false))then
-    begin
-      // 트랙데이터 생성 & 지시 상태 변경 : CV대기 -> CV이동
-      Uf_TrackIPGOSet(Job_No, Device, 4);
-//    Exit;
-    end;
-
-
     WhereStr := ' AND ORD_IO = ' + QuotedStr('출고') +
                 ' AND STATUS = ' + QuotedStr('CV완료');
-    Job_No  := Uf_GetOrderJobNo(Device, WhereStr);
-    OrdType := Uf_GetOrder(IntToStr(Job_No), 'ORD_TYPE');
+    Out_Job_No  := Uf_GetOrderJobNo(Device, WhereStr);
+    OrdType := Uf_GetOrder(IntToStr(Out_Job_No), 'ORD_TYPE');
 
     //**** 부분출고 확인 -> 품목출고 확인 -> 입고 확인 ****//
-    if (Job_No <> -1) then
+    if (Out_Job_No <> -1) then
     begin
       //**** 완료된 부분출고, 보충출고 지시 있음 -> 재입고 지시 생성 & 출고지시 삭제
       if ((OrdType = '부분출고') or (OrdType = '보충출고')) then
       begin
         // 재입고 지시 생성 - 실패시 False 반환
-        if (Uf_ReIn_OrderCreate(IntToStr(Job_No)) = False) then
+        if (Uf_ReIn_OrderCreate(IntToStr(Out_Job_No)) = False) then
         begin
           Exit;
         end;
 
         // 완료된 [부분출고, 보충출고]지시 삭제
-        Uf_DeleteOrder(IntToStr(Job_No));
+        Uf_DeleteOrder(IntToStr(Out_Job_No));
 
         // 트랙데이터 제거
         Uf_TrackDataSet('', 0, Device, 4);
@@ -518,34 +501,34 @@ begin
         WhereStr := ' AND ORD_IO   = ' + QuotedStr('입고') +
                     ' AND ORD_TYPE IN (' + QuotedStr('재입고') + ',' + QuotedStr('보충입고') + ')' +
                     ' AND STATUS   = ' + QuotedStr('CV대기');
-        Job_No := Uf_GetOrderJobNo(Device, WhereStr);
+        In_Job_No := Uf_GetOrderJobNo(Device, WhereStr);
 
         // 트랙데이터 생성 & 지시 상태 변경
-        Uf_TrackIPGOSet(Job_No, Device, 4);
+        Uf_TrackIPGOSet(In_Job_No, Device, 4);
       end
       //**** 완료된 품목출고지시 있음 -> 팔레트 입고 지시 생성 & 출고지시 삭제
       else if (OrdType = '품목출고') then
       begin
-        // 재입고 지시 생성 - 실패시 False 반환
-        if (Uf_ReIn_OrderCreate(IntToStr(Job_No)) = False) then
+        // 재입고 지시(파레트입고) 생성 - 실패시 False 반환
+        if (Uf_ReIn_OrderCreate(IntToStr(Out_Job_No)) = False) then
         begin
           Exit;
         end;
 
         // 완료된 [품목출고] 지시 삭제
-        Uf_DeleteOrder(IntToStr(Job_No));
+        Uf_DeleteOrder(IntToStr(Out_Job_No));
 
         // 트랙데이터 제거
         Uf_TrackDataSet('', 0, Device, 4);
 
-        // 재입고 지시의 작업번호 가져옴
+        // 재입고 지시(파레트입고)의 작업번호 가져옴
         WhereStr := ' AND ORD_IO   = ' + QuotedStr('입고') +
                     ' AND ORD_TYPE = ' + QuotedStr('파레트입고') +
                     ' AND STATUS   = ' + QuotedStr('CV대기');
-        Job_No := Uf_GetOrderJobNo(Device, WhereStr);
+        In_Job_No := Uf_GetOrderJobNo(Device, WhereStr);
 
         // 트랙데이터 생성 & 지시 상태 변경
-        Uf_TrackIPGOSet(Job_No, Device, 4);
+        Uf_TrackIPGOSet(In_Job_No, Device, 4);
       end
       //**** 완료된 파레트출고 지시 있음 -> 품목 입고 지시 확인 후 작업 & 출고지시 삭제
       else if (OrdType = '파레트출고') then
@@ -553,23 +536,99 @@ begin
         // 입고지시 없는 경우 Exit
         WhereStr := ' AND ORD_IO = ' + QuotedStr('입고') +
                     ' AND STATUS = ' + QuotedStr('CV대기') +
-                    ' AND ORD_SEQ_SEL = 1' ;
-        // 작업 없으면 -1 반환
-        if (Uf_GetOrderJobNo(Device, WhereStr) <= 0) then Exit;
+                    ' AND ORD_SEQ_SEL = 1';
+
+        // 입고지시의 작업번호 가져옴
+        In_Job_No := Uf_GetOrderJobNo(Device, WhereStr);
+
+        // 입고작업 없으면 -1 반환 (진행 안함)
+        if (In_Job_No <= 0) then Exit;
+
+        // 수동입고는 랙이 지정되어 있음,
+        // 랙이 지정되어 있지 않은 경우(바코드 수신 입고)에만 빈랙찾고, Order, Rack_Stock, Rack 업데이트
+        if (Uf_GetOrder(IntToStr(In_Job_No), 'ORD_LOC') = '000000') then
+        begin
+          // 1.빈랙찾기
+          // 1.1입고지시의 PLC위치
+          OrderPlcNo := Uf_GetOrder(IntToStr(In_Job_No), 'PLC_NO');
+          // 1.2 빈랙찾기 프로시져 호출
+          RackLoc := GetEmptyRack('', OrderPlcNo, '1'); // Return OK010101 or NG000000
+
+          if (Copy(RackLoc, 1, 2) = 'NG')  then
+          begin
+            // 에러이력 남김
+            ErrorLogWrite('ControlProcess_SC[빈셀찾기 실패]' + RackLoc);
+            Exit;
+          end
+          else
+          begin
+            RackLoc := Copy(RackLoc, 3, 6);
+            // 2. ORDER의 랙위치 업데이트
+            Uf_SetOrderLoc(IntToStr(In_Job_No), RackLoc);
+
+            // 3. Rack 상태를 입고중으로 업데이트
+            Uf_SetRack(RackLoc, 'RACK_STAT', '입고중');
+
+            // 4. Rack_Stock의 위치 업데이트
+            Uf_SetRackStockLoc(IntToStr(In_Job_No), RackLoc);
+          end;
+        end;
 
         // 완료된 [파레트출고] 지시 삭제
-        Uf_DeleteOrder(IntToStr(Job_No));
+        Uf_DeleteOrder(IntToStr(Out_Job_No));
 
         // 트랙데이터 제거
         Uf_TrackDataSet('', 0, Device, 4);
 
-        // 입고지시의 작업번호 가져옴
-        Job_No := Uf_GetOrderJobNo(Device, WhereStr);
-
-        if (Job_No <= 0) then Exit;
-
         // 트랙데이터 생성 & 지시 상태 변경 : CV대기 -> CV이동
-        Uf_TrackIPGOSet(Job_No, Device, 4);
+        Uf_TrackIPGOSet(In_Job_No, Device, 4);
+      end;
+    end
+    // 출고 완료 지시가 없는 경우
+    else
+    begin
+      // 파레트 입고 작업 있는 경우
+      WhereStr := ' AND ORD_IO = ''입고'' ' +
+                  ' AND STATUS = ''CV대기'' ' +
+                  ' AND ORD_TYPE = ''파레트입고'' ' +
+                  ' AND ORD_SEQ_SEL = ''1'' ';
+      In_Job_No := Uf_GetOrderJobNo(Device, WhereStr);
+
+      // 파레트입고 작업이 있고 트랙데이터 없을 경우에만 트랙데이터 생성하고 작업완료 표시등 끔
+      if((In_Job_No <> -1) and
+         (Uf_TrackDataCheck(Device, 4) = false))then
+      begin
+        // 수동입고는 랙이 지정되어 있음,
+        // 랙이 지정되어 있지 않은 경우(바코드 수신 입고)에만 빈랙찾고, Order, Rack_Stock, Rack 업데이트
+        if (Uf_GetOrder(IntToStr(In_Job_No), 'ORD_LOC') = '000000') then
+        begin
+          // 1.빈랙찾기
+          // 1.1입고지시의 PLC위치
+          OrderPlcNo := Uf_GetOrder(IntToStr(In_Job_No), 'PLC_NO');
+          // 1.2 빈랙찾기 프로시져 호출
+          RackLoc := GetEmptyRack('', OrderPlcNo, '1'); // Return OK010101 or NG000000
+
+          if (Copy(RackLoc, 1, 2) = 'NG')  then
+          begin
+            // 에러이력 남김
+            ErrorLogWrite('ControlProcess_SC[빈셀찾기 실패]' + RackLoc);
+            Exit;
+          end
+          else
+          begin
+            RackLoc := Copy(RackLoc, 3, 6);
+            // 2. ORDER의 랙위치 업데이트
+            Uf_SetOrderLoc(IntToStr(In_Job_No), RackLoc);
+
+            // 3. Rack 상태를 입고중으로 업데이트
+            Uf_SetRack(RackLoc, 'RACK_STAT', '입고중');
+
+            // 4. Rack_Stock의 위치 업데이트
+            Uf_SetRackStockLoc(IntToStr(In_Job_No), RackLoc);
+          end;
+        end;
+        // 트랙데이터 생성 & 지시 상태 변경 : CV대기 -> CV이동
+        Uf_TrackIPGOSet(In_Job_No, Device, 4);
       end;
     end;
   end;
@@ -776,7 +835,7 @@ begin
       if (Copy(Rack_Loc, 1, 2) = 'NG')  then
       begin
         // 에러이력 남김
-        ErrorLogWrite('빈셀찾기 실패');
+        ErrorLogWrite('ControlProcess_SC[빈셀찾기 실패]');
       end
       else
       begin
@@ -1235,7 +1294,7 @@ begin
       if ((Length(Trim(gWholePacket[Device])) > 6) and
           (Length(Trim(gWholePacket[Device])) < 12)) then
       begin
-        //ErrorLogWrite('PLC NAK Recv [PLC#' + IntToStr(Device) + '_' + gWholePacket[Device] + ']');
+        ErrorLogWrite('PLC NAK Recv [PLC#' + IntToStr(Device) + '_' + gWholePacket[Device] + ']');
       end
       else
       begin
@@ -1550,7 +1609,7 @@ begin
   except
     on e : Exception do
     begin
-      ErrorLogWrite('PLCWrite Error [PLC#' + IntToStr(Device) + '_' + Machine+ ':' + Data + ']');
+      ErrorLogWrite('PLCWrite Error [PLC#' + IntToStr(Device) + '_' + Machine+ ':' + Data + '] Message:' + e.Message);
     end;
   end;
 
@@ -2079,7 +2138,7 @@ begin
 
     // CV완료인 지시가 있을 때
     // 입고지시 유무에 따라 점멸등을 켜고 끈다.
-    // 품목출고, 보충출고의 CV완료 : 점멸등ON,
+    // 품목출고, 보충출고, 부분출고의 CV완료 : 점멸등ON,
     OrdType := Uf_GetOrder(IntToStr(Job_No), 'ORD_TYPE');
     if (OrdType = '품목출고') or (OrdType = '보충출고') or (OrdType = '부분출고') then
     begin

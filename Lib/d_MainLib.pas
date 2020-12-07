@@ -79,12 +79,14 @@ type
     function  Uf_GetOrderCount(WhereStr: String) : Integer;
     function  Uf_GetOrder(Job_No, Field: String): String;
     procedure Uf_SetOrder(Job_No, Field, Value: String);
+    procedure Uf_SetOrderLoc(Job_No, OrdLoc: String);
     procedure Uf_DeleteOrder(Job_No: String);
     function  Uf_ReIn_OrderCreate(Job_No: String): Boolean;
     procedure Uf_UpdateOrdSeq();
     function  Uf_GetRack(Loc, Field: String): String;
     procedure Uf_SetRack(Loc, Field, Value: String);
     procedure Uf_SetRackStock(Loc, Field, Value: String);
+    procedure Uf_SetRackStockLoc(InJobNo, Loc: String);
     procedure Uf_SetIntStatus(Device: Integer);
 
 
@@ -1569,7 +1571,7 @@ var
   Msg : String;
   StrSQL : String;
 begin
-
+  Result := 0;
   if (WhereStr = '') then Exit;
 
   try
@@ -1692,6 +1694,50 @@ begin
 
   end;
 end;
+
+//==============================================================================
+// Uf_DeleteOrder : TT_ORDER 데이터 지움
+//==============================================================================
+procedure Uf_SetOrderLoc(Job_No, OrdLoc: String);
+var
+  FileName : String;
+  Msg : String;
+  StrSQL : String;
+begin
+  try
+    with Dm_MainLib.qryOrderSet do
+    begin
+      Close;
+      StrSQL := ' UPDATE TT_ORDER ' +
+                '    SET ORD_LOC  = ''' + OrdLoc + ''' ' +
+                '      , DST_BANK = ''' + Copy(OrdLoc, 1, 2) + ''' ' +
+                '      , DST_BAY  = ''' + Copy(OrdLoc, 3, 2) + ''' ' +
+                '      , DST_LEVEL = ''' + Copy(OrdLoc, 5, 2) + ''' ' +
+                '      , UP_DT = CONVERT([varchar](max),getdate(),(21)) ' +
+                '  WHERE JOB_NO = ''' + Job_No + ''' ' +
+                '    AND ORD_LOC = ''000000'' ';
+      SQL.Text := StrSQL;
+      ExecSQL;
+      Close;
+    end;
+
+  except
+    on E:Exception do
+    begin
+    // 에러이력 DB에 기록
+    //InsertPGMHist(MENU_ID, HIST_TYPE, FUNC_NAME, EVENT_NAME, EVENT_DESC, COMMAND_TYPE, COMMAND_TEXT, PARAM, ERROR_MSG: String);
+      InsertPGMHist('RCP', 'E', 'Uf_SetOrderLoc', '', 'Exception Error', 'SQL', StrSQL, '', E.Message);
+
+      FileName := 'Log\DB_Error_' + FormatDatetime('YYYYMMDD', now) + '.log';
+      Msg := FormatDateTime('YYYY-MM-DD HH:mm:ss ', Now()) + '>>';
+      Msg := Msg + 'Uf_SetOrderLoc' + '['+ E.Message + ']';
+      LogWrite(FileName, Msg);
+    end;
+
+  end;
+end;
+
+
 
 //==============================================================================
 // Uf_DeleteOrder : TT_ORDER 데이터 지움
@@ -1930,6 +1976,50 @@ begin
 
   end;
 end;
+
+//==============================================================================
+// Uf_SetIntStatus : Device : PLC_NO
+//==============================================================================
+procedure Uf_SetRackStockLoc(InJobNo, Loc: String);
+var
+  FileName : String;
+  Msg : String;
+  StrSQL : String;
+begin
+  try
+    with Dm_MainLib.qryRackSet do
+    begin
+      Close;
+      StrSQL := ' UPDATE TT_RACK_STOCK ' +
+                '    SET RACK_LOC   = ''' + Loc + ''' ' +
+                '      , RACK_BANK  = ''' + Copy(Loc, 1, 2) + ''' ' +
+                '      , RACK_BAY   = ''' + Copy(Loc, 3, 2) + ''' ' +
+                '      , RACK_LEVEL = ''' + Copy(Loc, 5, 2) + ''' ' +
+                '      , UP_DT = CONVERT([varchar](max),getdate(),(21)) ' +
+                '  WHERE IN_JOB_NO = ' + QuotedStr(InJobNo) +
+                '    AND RACK_LOC = ''000000'' ' ;
+
+      SQL.Text := StrSQL;
+      ExecSQL;
+      Close;
+    end;
+
+  except
+    on E:Exception do
+    begin
+    // 에러이력 DB에 기록
+    //InsertPGMHist(MENU_ID, HIST_TYPE, FUNC_NAME, EVENT_NAME, EVENT_DESC, COMMAND_TYPE, COMMAND_TEXT, PARAM, ERROR_MSG: String);
+      InsertPGMHist('RCP', 'E', 'Uf_SetRackStockLoc', '', 'Exception Error', 'SQL', StrSQL, '', E.Message);
+
+      FileName := 'Log\DB_Error_' + FormatDatetime('YYYYMMDD', now) + '.log';
+      Msg := FormatDateTime('YYYY-MM-DD HH:mm:ss ', Now()) + '>>';
+      Msg := Msg + 'Uf_SetRackStockLoc' + '['+ E.Message + ']';
+      LogWrite(FileName, Msg);
+    end;
+
+  end;
+end;
+
 
 //==============================================================================
 // Uf_SetIntStatus : Device : PLC_NO

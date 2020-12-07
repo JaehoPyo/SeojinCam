@@ -261,12 +261,14 @@ object Dm_MainLib: TDm_MainLib
         DataType = ftInteger
         Direction = pdReturnValue
         Precision = 10
+        Value = Null
       end
       item
         Name = '@I_JOB_NO'
         Attributes = [paNullable]
         DataType = ftString
         Size = 4
+        Value = Null
       end
       item
         Name = '@O_VRETCD'
@@ -274,6 +276,7 @@ object Dm_MainLib: TDm_MainLib
         DataType = ftString
         Direction = pdInputOutput
         Size = 20
+        Value = Null
       end>
     Left = 200
     Top = 8
