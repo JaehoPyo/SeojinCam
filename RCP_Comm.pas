@@ -369,6 +369,7 @@ var
   ErrorCode : Array [1..6] of Integer;
   WhereStr : String;
   OrdType, RackLoc, OrderPlcNo : String;
+  Bank : String;
 begin
 
   // 자동모드가 아니면 Exit
@@ -548,10 +549,16 @@ begin
         // 랙이 지정되어 있지 않은 경우(바코드 수신 입고)에만 빈랙찾고, Order, Rack_Stock, Rack 업데이트
         if (Uf_GetOrder(IntToStr(In_Job_No), 'ORD_LOC') = '000000') then
         begin
-          // 1.빈랙찾기
-          // 1.1입고지시의 PLC위치
+          // 1. 빈랙찾기
+          // 1.1 입고지시의 PLC위치
           OrderPlcNo := Uf_GetOrder(IntToStr(In_Job_No), 'PLC_NO');
-          // 1.2 빈랙찾기 프로시져 호출
+          // 1.2 열이 지정되어있는 경우 열 업데이트
+          Bank := Uf_GetOrder(IntToStr(In_Job_No), 'DST_BANK');
+          if(Bank <> '00') then
+          begin
+            Uf_SetTTSEQ(Bank);
+          end;
+          // 1.3 빈랙찾기 프로시져 호출
           RackLoc := GetEmptyRack('', OrderPlcNo, '1'); // Return OK010101 or NG000000
 
           if (Copy(RackLoc, 1, 2) = 'NG')  then
@@ -605,7 +612,13 @@ begin
           // 1.빈랙찾기
           // 1.1입고지시의 PLC위치
           OrderPlcNo := Uf_GetOrder(IntToStr(In_Job_No), 'PLC_NO');
-          // 1.2 빈랙찾기 프로시져 호출
+          // 1.2 열이 지정되어있는 경우 열 업데이트
+          Bank := Uf_GetOrder(IntToStr(In_Job_No), 'DST_BANK');
+          if(Bank <> '00') then
+          begin
+            Uf_SetTTSEQ(Bank);
+          end;
+          // 1.3 빈랙찾기 프로시져 호출
           RackLoc := GetEmptyRack('', OrderPlcNo, '1'); // Return OK010101 or NG000000
 
           if (Copy(RackLoc, 1, 2) = 'NG')  then

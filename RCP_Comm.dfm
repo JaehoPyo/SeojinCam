@@ -219,10 +219,6 @@ object frmMain: TfrmMain
           Font.Style = []
           ImageIndex = 1
           ParentFont = False
-          ExplicitLeft = 0
-          ExplicitTop = 0
-          ExplicitWidth = 0
-          ExplicitHeight = 697
           object Panel4: TPanel
             Left = 0
             Top = 0
@@ -233,7 +229,6 @@ object frmMain: TfrmMain
             BevelOuter = bvNone
             ParentBackground = False
             TabOrder = 0
-            ExplicitHeight = 697
             object GroupBox1: TGroupBox
               Left = 1
               Top = 265
@@ -242,7 +237,6 @@ object frmMain: TfrmMain
               Align = alClient
               Caption = 'Conveyor'
               TabOrder = 0
-              ExplicitHeight = 431
               object Panel13: TPanel
                 Left = 2
                 Top = 15
@@ -252,7 +246,6 @@ object frmMain: TfrmMain
                 BevelInner = bvRaised
                 BevelOuter = bvLowered
                 TabOrder = 0
-                ExplicitHeight = 414
                 object Panel14: TPanel
                   Left = 2
                   Top = 2
@@ -344,9 +337,6 @@ object frmMain: TfrmMain
                   Align = alClient
                   Caption = 'CV'#49345#53468'(PLC'#8594'PC)'
                   TabOrder = 2
-                  ExplicitLeft = 3
-                  ExplicitTop = 78
-                  ExplicitHeight = 356
                   object cbCV1_1: TCheckBox
                     Left = 3
                     Top = 18
@@ -614,7 +604,6 @@ object frmMain: TfrmMain
                 BevelInner = bvRaised
                 BevelOuter = bvLowered
                 TabOrder = 1
-                ExplicitHeight = 414
                 object Panel16: TPanel
                   Left = 2
                   Top = 2
@@ -706,7 +695,6 @@ object frmMain: TfrmMain
                   Align = alClient
                   Caption = 'CV'#49345#53468'(PLC'#8594'PC)'
                   TabOrder = 2
-                  ExplicitTop = 76
                   object cbCV2_1: TCheckBox
                     Left = 3
                     Top = 18

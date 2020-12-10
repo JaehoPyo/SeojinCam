@@ -88,6 +88,7 @@ type
     procedure Uf_SetRackStock(Loc, Field, Value: String);
     procedure Uf_SetRackStockLoc(InJobNo, Loc: String);
     procedure Uf_SetIntStatus(Device: Integer);
+    procedure Uf_SetTTSEQ(Bank: String);
 
 
     procedure Uf_SCDataMove(Device: Integer; IO: String);
@@ -2060,6 +2061,43 @@ begin
   end;
 end;
 
+//==============================================================================
+// Uf_TC_SCCW_Update
+//==============================================================================
+procedure Uf_SetTTSEQ(Bank: String);
+var
+  FileName : String;
+  Msg : String;
+  StrSQL : String;
+begin
+  try
+    with Dm_MainLib.qryRackSet do
+    begin
+      Close;
+      StrSQL := ' UPDATE TT_SCSEQ ' +
+                '    SET BANK = ''' + Bank + ''' ' +
+                '      , UP_DT = CONVERT(VARCHAR(MAX), GETDATE(), 21) ' +
+                '  WHERE HOGI = ''1'' ';
+      SQL.Text := StrSQL;
+      ExecSQL;
+      Close;
+    end;
+
+  except
+    on E:Exception do
+    begin
+    // 에러이력 DB에 기록
+    //InsertPGMHist(MENU_ID, HIST_TYPE, FUNC_NAME, EVENT_NAME, EVENT_DESC, COMMAND_TYPE, COMMAND_TEXT, PARAM, ERROR_MSG: String);
+      InsertPGMHist('RCP', 'E', 'Uf_SetTTSEQ', '', 'Exception Error', 'SQL', StrSQL, '', E.Message);
+
+      FileName := 'Log\DB_Error_' + FormatDatetime('YYYYMMDD', now) + '.log';
+      Msg := FormatDateTime('YYYY-MM-DD HH:mm:ss ', Now()) + '>>';
+      Msg := Msg + 'Uf_SetTTSEQ' + '['+ E.Message + ']';
+      LogWrite(FileName, Msg);
+    end;
+
+  end;
+end;
 
 //==============================================================================
 // Uf_TC_SCCW_Update
